@@ -26,6 +26,9 @@ const sessionStore = new PostgresSessionStore(pool);
 app.set('view engine', 'ejs');
 app.set('views', path.join(carpetaProyecto, 'views'));
 app.disable('x-powered-by');
+// Render entrega el trafico mediante un proxy HTTPS: confiar en un salto
+// permite cookies Secure y que el rate limit lea la IP real del cliente.
+if (config.nodeEnv === 'production') app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {

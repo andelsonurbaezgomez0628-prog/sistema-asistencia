@@ -26,9 +26,11 @@ export function crearConfiguracion(variables = process.env) {
   }
 
   const nodeEnv = variables.NODE_ENV || 'development';
+  // En produccion el hosting (Render) necesita escuchar en todas las interfaces.
+  const hostPorDefecto = nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1';
   return Object.freeze({
     nodeEnv,
-    host: variables.HOST || '127.0.0.1',
+    host: variables.HOST || hostPorDefecto,
     port,
     databaseUrl: databaseUrl.toString(),
     sessionSecret,

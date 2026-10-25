@@ -1,11 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { crearConfiguracion } from '../src/config.js';
 
 const base = {
   DATABASE_URL: 'postgresql://usuario:clave@localhost/base?sslmode=require&channel_binding=require',
   SESSION_SECRET: 'secreto-local-de-prueba-con-mas-de-32-caracteres',
 };
+
+// GitHub Actions no tiene .env: se define un entorno valido antes de importar
+// el modulo, que crea la configuracion global al cargarse.
+process.env.DATABASE_URL = base.DATABASE_URL;
+process.env.SESSION_SECRET = base.SESSION_SECRET;
+const { crearConfiguracion } = await import('../src/config.js');
 
 test('centraliza valores y exige verificacion TLS completa', () => {
   const configuracion = crearConfiguracion({ ...base, NODE_ENV: 'production', PORT: '4444' });

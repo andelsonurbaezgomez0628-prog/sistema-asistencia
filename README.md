@@ -30,8 +30,9 @@ La regla pura esta en [src/alertas.js](src/alertas.js). Las consultas de seguimi
 - Configuracion general en `src/config.js`; secretos exclusivamente en `.env`.
 - Bootstrap 5 y CSS del proyecto.
 
-Node sirve la aplicacion en `127.0.0.1:3000` por defecto. El runtime PHP anterior se retiro del
-proyecto; solo queda Node.js como servidor y `.htaccess` como bloqueo de respaldo.
+Node sirve la aplicacion en `127.0.0.1:3000` en desarrollo y en `0.0.0.0:$PORT` cuando
+`NODE_ENV=production` (requisito de Render). El runtime PHP anterior se retiro del proyecto;
+solo queda Node.js como servidor y `.htaccess` como bloqueo de respaldo.
 
 ## Configuracion e instalacion
 
@@ -57,6 +58,28 @@ y doble confirmacion: `npm run db:setup -- --forzar --confirmar`.
 
 **Seguridad de credenciales:** la URI fue compartida en una conversacion. Rota su contrasena en
 Neon antes de usar la base con datos reales y actualiza solo el `.env` local.
+
+## Despliegue en Render
+
+El repositorio incluye `render.yaml`, asi que basta con crear un Blueprint en Render y conectar
+GitHub. Si se configura manualmente, usar:
+
+| Campo | Valor |
+|---|---|
+| Build Command | `npm ci` |
+| Start Command | `npm start` |
+| Health Check Path | `/health` |
+
+Variables de entorno obligatorias (no se guardan en Git):
+
+- `DATABASE_URL`: URI de Neon con `sslmode=require`.
+- `SESSION_SECRET`: al menos 32 caracteres aleatorios.
+- `NODE_ENV=production` y `HOST=0.0.0.0` (ya vienen en `render.yaml`).
+
+La base ya inicializada se comparte con Neon, por lo que no hace falta ejecutar `npm run db:setup`
+en cada despliegue. Si la base estuviera vacia, ejecutarlo una sola vez desde la Shell del
+servicio en Render. `NODE_ENV=production` activa cookies `Secure`, por lo que el sitio debe abrirse
+por HTTPS (Render lo entrega automaticamente).
 
 ## Cero confianza
 
