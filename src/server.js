@@ -174,7 +174,10 @@ app.use((error, req, res, next) => {
 });
 
 const servidor = app.listen(config.port, config.host, () => {
-  console.log(`Asistencia Escolar Inteligente disponible en http://${config.host}:${config.port}`);
+  console.log(
+    `Asistencia Escolar Inteligente disponible en http://${config.host}:${config.port}`
+    + ` | entorno=${config.nodeEnv} | proxy=${config.trustProxy}`,
+  );
 });
 
 async function cerrarServidor() {

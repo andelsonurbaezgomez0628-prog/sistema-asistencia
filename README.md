@@ -30,9 +30,9 @@ La regla pura esta en [src/alertas.js](src/alertas.js). Las consultas de seguimi
 - Configuracion general en `src/config.js`; secretos exclusivamente en `.env`.
 - Bootstrap 5 y CSS del proyecto.
 
-Node sirve la aplicacion en `0.0.0.0:$PORT` (o `127.0.0.1:3000` si se define `HOST`) para que
-el proxy de Render pueda alcanzarla. El runtime PHP anterior se retiro del proyecto; solo queda
-Node.js como servidor y `.htaccess` como bloqueo de respaldo.
+Node escucha siempre en `0.0.0.0:$PORT` (por defecto `3000`) para que el proxy de Render pueda
+alcanzarla; la variable `HOST` se ignora a proposito. El runtime PHP anterior se retiro del
+proyecto; solo queda Node.js como servidor y `.htaccess` como bloqueo de respaldo.
 
 ## Configuracion e instalacion
 
@@ -74,7 +74,8 @@ Variables de entorno obligatorias (no se guardan en Git):
 
 - `DATABASE_URL`: URI de Neon con `sslmode=require`.
 - `SESSION_SECRET`: al menos 32 caracteres aleatorios.
-- `NODE_ENV=production` y `HOST=0.0.0.0` (ya vienen en `render.yaml`).
+- `NODE_ENV=production` (ya viene en `render.yaml`; Render tambien se detecta por `RENDER=true`).
+- No configures `HOST`: se ignora para evitar que un `127.0.0.1` deje el servicio inaccesible.
 
 La base ya inicializada se comparte con Neon, por lo que no hace falta ejecutar `npm run db:setup`
 en cada despliegue. Si la base estuviera vacia, ejecutarlo una sola vez desde la Shell del

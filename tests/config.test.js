@@ -34,6 +34,12 @@ test('en desarrollo local no confia en el proxy', () => {
   const configuracion = crearConfiguracion(base);
   assert.equal(configuracion.trustProxy, false);
   assert.equal(configuracion.cookieSecure, false);
+  assert.equal(configuracion.host, '0.0.0.0');
+});
+
+test('ignora un HOST de loopback que romperia el despliegue', () => {
+  const configuracion = crearConfiguracion({ ...base, HOST: '127.0.0.1', RENDER: 'true' });
+  assert.equal(configuracion.host, '0.0.0.0');
 });
 
 test('rechaza una URI que no sea PostgreSQL', () => {

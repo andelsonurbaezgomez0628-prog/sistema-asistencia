@@ -27,12 +27,13 @@ export function crearConfiguracion(variables = process.env) {
 
   const nodeEnv = variables.NODE_ENV || 'development';
   // Render define RENDER=true aunque NODE_ENV no se configure. Detectarlo evita
-  // que el servicio quede escuchando solo en loopback y sin cookies Secure.
+  // que el servicio quede sin cookies Secure o sin confiar en el proxy.
   const enHosting = nodeEnv === 'production' || Boolean(variables.RENDER);
   return Object.freeze({
     nodeEnv,
-    // 0.0.0.0 permite que el proxy del hosting alcance la aplicacion.
-    host: variables.HOST || '0.0.0.0',
+    // Siempre 0.0.0.0: el proxy del hosting necesita alcanzar la aplicacion.
+    // No se acepta HOST porque un valor 127.0.0.1 deja el servicio inaccesible.
+    host: '0.0.0.0',
     port,
     databaseUrl: databaseUrl.toString(),
     sessionSecret,
