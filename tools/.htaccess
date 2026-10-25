@@ -1,0 +1,3 @@
+# Nadie debe abrir los archivos de esta carpeta desde el navegador.
+# Este programa solo corre en consola; el bloqueo es una segunda capa.
+Require all denied

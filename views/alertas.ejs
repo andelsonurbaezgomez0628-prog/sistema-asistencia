@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alertas | Asistencia Escolar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/estilos.css" rel="stylesheet">
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <main class="container py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <h1 class="h3 mb-0">Alertas de ausentismo</h1>
+      <% if (usuario.rol === 'admin') { %>
+        <form method="post" action="/alertas/recalcular">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-outline-primary" type="submit">Recalcular todas</button>
+        </form>
+      <% } %>
+    </div>
+    <% if (flash) { %><div class="alert alert-info"><%= flash %></div><% } %>
+    <p class="text-secondary">Tres ausencias no justificadas en 30 dias generan nivel medio; cinco o una racha de tres dias generan nivel alto.</p>
+    <div class="row g-3 mb-3">
+      <div class="col-sm-4"><div class="border rounded p-3"><strong><%= resumen.alto %></strong><div>Altas pendientes</div></div></div>
+      <div class="col-sm-4"><div class="border rounded p-3"><strong><%= resumen.medio %></strong><div>Medias pendientes</div></div></div>
+      <div class="col-sm-4"><div class="border rounded p-3"><strong><%= resumen.pendientes %></strong><div>Total pendientes</div></div></div>
+    </div>
+    <form class="row g-2 mb-3" method="get" action="/alertas">
+      <div class="col-sm-4"><label class="form-label" for="nivel">Nivel</label><select class="form-select" id="nivel" name="nivel"><option value="">Todos</option><% for (const valor of ['alto', 'medio', 'bajo']) { %><option value="<%= valor %>" <%= nivel === valor ? 'selected' : '' %>><%= valor %></option><% } %></select></div>
+      <div class="col-sm-4"><label class="form-label" for="estado">Estado</label><select class="form-select" id="estado" name="estado"><option value="">Todos</option><% for (const valor of ['pendiente', 'atendida']) { %><option value="<%= valor %>" <%= estado === valor ? 'selected' : '' %>><%= valor %></option><% } %></select></div>
+      <div class="col-sm-4 d-flex align-items-end"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+    </form>
+    <% if (alertas.length === 0) { %><div class="alert alert-success">No hay alertas con esos filtros.</div><% } %>
+    <div class="row g-3">
+      <% for (const alerta of alertas) { %>
+        <div class="col-lg-6"><article class="border rounded p-3 h-100">
+          <div class="d-flex justify-content-between"><h2 class="h6"><%= alerta.apellido %>, <%= alerta.nombre %></h2><span class="badge text-bg-<%= alerta.nivel === 'alto' ? 'danger' : alerta.nivel === 'medio' ? 'warning' : 'secondary' %>"><%= alerta.nivel.toUpperCase() %></span></div>
+          <p class="small text-secondary"><%= alerta.curso %> · <%= alerta.seccion %> · Lista N° <%= alerta.numero_lista %> · <%= alerta.fecha_deteccion %></p>
+          <p><%= alerta.mensaje %></p>
+          <p class="small">Ausencias: <%= alerta.faltas_30_dias %> · Racha: <%= alerta.racha_maxima %> dias</p>
+          <% if (alerta.estado === 'pendiente') { %>
+            <form class="d-flex gap-2" method="post" action="/alertas/<%= alerta.id %>/atender">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input class="form-control" name="nota" maxlength="200" placeholder="Accion tomada" required>
+              <button class="btn btn-success" type="submit">Atender</button>
+            </form>
+          <% } else { %><span class="badge text-bg-secondary">Atendida</span><% } %>
+        </article></div>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

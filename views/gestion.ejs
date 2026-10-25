@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestion | Asistencia Escolar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/estilos.css" rel="stylesheet">
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <main class="container py-4">
+    <div class="dashboard-heading">
+      <div>
+        <p class="dashboard-kicker">Coordinacion academica</p>
+        <h1 class="h3 mb-0 page-heading"><img class="page-icon" src="/icons/secciones.png" alt="" aria-hidden="true">Gestion academica</h1>
+      </div>
+      <a class="btn btn-outline-primary btn-sm" href="/">Volver al panel</a>
+    </div>
+
+    <% if (flash) { %>
+      <div class="alert alert-info" role="status"><%= flash %></div>
+    <% } %>
+
+    <%
+      const totalActivos = (lista) => lista.filter((item) => item.activo).length;
+      const pestanas = [
+        { clave: 'cursos', etiqueta: 'Cursos', total: cursos.length },
+        { clave: 'secciones', etiqueta: 'Secciones', total: secciones.length },
+        { clave: 'estudiantes', etiqueta: 'Estudiantes', total: totalActivos(estudiantes) },
+        { clave: 'docentes', etiqueta: 'Docentes', total: totalActivos(docentes) },
+      ];
+    %>
+
+    <div class="gestion-tabs" role="tablist" aria-label="Registros de gestion">
+      <% pestanas.forEach((pestana, indice) => { %>
+        <button class="gestion-tab <%= indice === 0 ? 'is-active' : '' %>" type="button" role="tab"
+          id="tab-<%= pestana.clave %>" aria-controls="panel-<%= pestana.clave %>"
+          aria-selected="<%= indice === 0 ? 'true' : 'false' %>" tabindex="<%= indice === 0 ? '0' : '-1' %>"
+          data-gestion-tab="<%= pestana.clave %>">
+          <%= pestana.etiqueta %>
+          <span class="gestion-tab-count"><%= pestana.total %></span>
+        </button>
+      <% }); %>
+    </div>
+
+    <div class="gestion-panels">
+      <section class="gestion-panel is-active" id="panel-cursos" role="tabpanel" aria-labelledby="tab-cursos" tabindex="0">
+        <article class="card">
+          <header class="card-header gestion-card-header">
+            <div>
+              <h2 class="h5 mb-0">Cursos</h2>
+              <p class="text-secondary small mb-0">Crea cursos y actualiza su nombre o descripcion.</p>
+            </div>
+            <span class="badge text-bg-light"><%= cursos.length %> registrados</span>
+          </header>
+
+          <div class="gestion-form">
+            <form class="row g-3 align-items-end" method="post" action="/gestion/cursos">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-md-4">
+                <label class="form-label" for="curso-nombre">Nombre del curso</label>
+                <input class="form-control" id="curso-nombre" name="nombre" maxlength="100" placeholder="Ej. Primer ano" required>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label" for="curso-descripcion">Descripcion (opcional)</label>
+                <input class="form-control" id="curso-descripcion" name="descripcion" maxlength="255" placeholder="Breve descripcion del curso">
+              </div>
+              <div class="col-md-3">
+                <button class="btn btn-primary w-100" type="submit">Crear curso</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-top mb-0">
+              <thead>
+                <tr><th>Curso</th><th>Secciones</th><th class="text-end">Acciones</th></tr>
+              </thead>
+              <tbody>
+                <% for (const curso of cursos) { %>
+                  <tr>
+                    <td>
+                      <strong><%= curso.nombre %></strong>
+                      <div class="small text-secondary"><%= curso.descripcion || 'Sin descripcion' %></div>
+                    </td>
+                    <td><span class="gestion-contador"><%= curso.total_secciones %></span></td>
+                    <td class="text-end">
+                      <div class="gestion-acciones">
+                        <details class="gestion-editor">
+                          <summary class="btn btn-outline-primary btn-sm">Editar</summary>
+                          <form class="gestion-editor-form" method="post" action="/gestion/cursos">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <input type="hidden" name="id" value="<%= curso.id %>">
+                            <div class="mb-2">
+                              <label class="form-label small mb-1" for="curso-<%= curso.id %>-nombre">Nombre</label>
+                              <input class="form-control form-control-sm" id="curso-<%= curso.id %>-nombre" name="nombre" value="<%= curso.nombre %>" maxlength="100" required>
+                            </div>
+                            <div class="mb-2">
+                              <label class="form-label small mb-1" for="curso-<%= curso.id %>-descripcion">Descripcion</label>
+                              <input class="form-control form-control-sm" id="curso-<%= curso.id %>-descripcion" name="descripcion" value="<%= curso.descripcion || '' %>" maxlength="255">
+                            </div>
+                            <button class="btn btn-primary btn-sm w-100" type="submit">Guardar cambios</button>
+                          </form>
+                        </details>
+                        <% if (Number(curso.total_secciones) === 0) { %>
+                          <form method="post" action="/gestion/cursos/<%= curso.id %>/eliminar" data-confirmar="Eliminar el curso <%= curso.nombre %>? Esta accion no se puede deshacer.">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">Eliminar</button>
+                          </form>
+                        <% } %>
+                      </div>
+                    </td>
+                  </tr>
+                <% } %>
+                <% if (cursos.length === 0) { %>
+                  <tr><td colspan="3" class="text-center text-secondary py-4">Todavia no hay cursos registrados.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="gestion-panel" id="panel-secciones" role="tabpanel" aria-labelledby="tab-secciones" tabindex="0">
+        <article class="card">
+          <header class="card-header gestion-card-header">
+            <div>
+              <h2 class="h5 mb-0">Secciones</h2>
+              <p class="text-secondary small mb-0">Asigna cada seccion a un curso y a un docente activo.</p>
+            </div>
+            <span class="badge text-bg-light"><%= secciones.length %> registradas</span>
+          </header>
+
+          <div class="gestion-form">
+            <form class="row g-3 align-items-end" method="post" action="/gestion/secciones">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-sm-6 col-lg-2">
+                <label class="form-label" for="seccion-nombre">Seccion</label>
+                <input class="form-control" id="seccion-nombre" name="nombre" maxlength="50" placeholder="Ej. A" required>
+              </div>
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label" for="seccion-curso">Curso</label>
+                <select class="form-select" id="seccion-curso" name="curso_id" required>
+                  <option value="">Seleccionar curso</option>
+                  <% for (const curso of cursos) { %>
+                    <option value="<%= curso.id %>"><%= curso.nombre %></option>
+                  <% } %>
+                </select>
+              </div>
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label" for="seccion-docente">Docente</label>
+                <select class="form-select" id="seccion-docente" name="docente_id" required>
+                  <option value="">Seleccionar docente</option>
+                  <% for (const docente of docentes.filter((item) => item.activo)) { %>
+                    <option value="<%= docente.id %>"><%= docente.nombre %></option>
+                  <% } %>
+                </select>
+              </div>
+              <div class="col-sm-6 col-lg-2">
+                <label class="form-label" for="seccion-anio">Ano escolar</label>
+                <input class="form-control" id="seccion-anio" name="anio_escolar" value="2026-2027" pattern="[0-9]{4}-[0-9]{4}" required>
+              </div>
+              <div class="col-lg-2">
+                <button class="btn btn-primary w-100" type="submit">Crear seccion</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr><th>Seccion</th><th>Curso</th><th>Docente</th><th>Estudiantes</th><th class="text-end">Acciones</th></tr>
+              </thead>
+              <tbody>
+                <% for (const seccion of secciones) { %>
+                  <tr>
+                    <td>
+                      <strong><%= seccion.nombre %></strong>
+                      <div class="small text-secondary"><%= seccion.anio_escolar %></div>
+                    </td>
+                    <td><%= seccion.curso %></td>
+                    <td><%= seccion.docente %></td>
+                    <td><span class="gestion-contador"><%= seccion.total_estudiantes %></span></td>
+                    <td class="text-end">
+                      <div class="gestion-acciones">
+                        <a class="btn btn-outline-primary btn-sm" href="/gestion/editar/seccion/<%= seccion.id %>">Editar</a>
+                        <% if (Number(seccion.total_estudiantes) === 0) { %>
+                          <form method="post" action="/gestion/secciones/<%= seccion.id %>/eliminar" data-confirmar="Eliminar la seccion <%= seccion.curso %> <%= seccion.nombre %>? Esta accion no se puede deshacer.">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">Eliminar</button>
+                          </form>
+                        <% } %>
+                      </div>
+                    </td>
+                  </tr>
+                <% } %>
+                <% if (secciones.length === 0) { %>
+                  <tr><td colspan="5" class="text-center text-secondary py-4">Todavia no hay secciones registradas.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="gestion-panel" id="panel-estudiantes" role="tabpanel" aria-labelledby="tab-estudiantes" tabindex="0">
+        <article class="card">
+          <header class="card-header gestion-card-header">
+            <div>
+              <h2 class="h5 mb-0">Estudiantes</h2>
+              <p class="text-secondary small mb-0">Registra estudiantes y asigna su seccion.</p>
+            </div>
+            <div class="gestion-buscador">
+              <label class="visually-hidden" for="buscar-estudiantes">Buscar estudiante</label>
+              <input class="form-control form-control-sm" id="buscar-estudiantes" type="search" placeholder="Buscar por nombre, numero de lista o seccion" data-filtrar-tabla="tabla-estudiantes">
+            </div>
+          </header>
+
+          <div class="gestion-form">
+            <form class="row g-3 align-items-end" method="post" action="/gestion/estudiantes">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-sm-4 col-lg-3">
+                <label class="form-label" for="estudiante-numero">Numero de lista</label>
+                <input class="form-control" id="estudiante-numero" name="numero_lista" type="number" min="1" max="40" step="1" inputmode="numeric" placeholder="1" required>
+              </div>
+              <div class="col-sm-4 col-lg-4">
+                <label class="form-label" for="estudiante-nombre">Nombre</label>
+                <input class="form-control" id="estudiante-nombre" name="nombre" maxlength="80" placeholder="Nombre del estudiante" required>
+              </div>
+              <div class="col-sm-4 col-lg-5">
+                <label class="form-label" for="estudiante-apellido">Apellido</label>
+                <input class="form-control" id="estudiante-apellido" name="apellido" maxlength="80" placeholder="Apellido del estudiante" required>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <label class="form-label" for="estudiante-fecha">Fecha de nacimiento (opcional)</label>
+                <input class="form-control" id="estudiante-fecha" name="fecha_nacimiento" type="date">
+              </div>
+              <div class="col-sm-6 col-lg-5">
+                <label class="form-label" for="estudiante-seccion">Curso y seccion</label>
+                <select class="form-select" id="estudiante-seccion" name="seccion_id" required>
+                  <option value="">Seleccionar seccion</option>
+                  <% for (const seccion of secciones) { %>
+                    <option value="<%= seccion.id %>"><%= seccion.curso %> · <%= seccion.nombre %></option>
+                  <% } %>
+                </select>
+              </div>
+              <div class="col-lg-3">
+                <button class="btn btn-primary w-100" type="submit">Crear estudiante</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tabla-estudiantes">
+              <thead>
+                <tr><th>Estudiante</th><th>Curso y seccion</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+              </thead>
+              <tbody>
+                <% for (const estudiante of estudiantes) { %>
+                  <tr>
+                    <td>
+                      <strong><%= estudiante.apellido %>, <%= estudiante.nombre %></strong>
+                      <div class="small text-secondary">Lista N° <%= estudiante.numero_lista %></div>
+                    </td>
+                    <td><%= estudiante.curso %> · <%= estudiante.seccion %></td>
+                    <td>
+                      <span class="badge <%= estudiante.activo ? 'text-bg-success' : 'text-bg-secondary' %>"><%= estudiante.activo ? 'Activo' : 'Inactivo' %></span>
+                    </td>
+                    <td class="text-end">
+                      <div class="gestion-acciones">
+                        <a class="btn btn-outline-primary btn-sm" href="/gestion/editar/estudiante/<%= estudiante.id %>">Editar</a>
+                        <% if (estudiante.activo) { %>
+                          <form method="post" action="/gestion/estudiantes/<%= estudiante.id %>/desactivar" data-confirmar="Desactivar a <%= estudiante.nombre %> <%= estudiante.apellido %>? Su historial se conservara.">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Desactivar</button>
+                          </form>
+                        <% } %>
+                      </div>
+                    </td>
+                  </tr>
+                <% } %>
+                <% if (estudiantes.length === 0) { %>
+                  <tr><td colspan="4" class="text-center text-secondary py-4">Todavia no hay estudiantes registrados.</td></tr>
+                <% } else { %>
+                  <tr data-filtro-vacio hidden><td colspan="4" class="text-center text-secondary py-4">No se encontraron estudiantes con esa busqueda.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="gestion-panel" id="panel-docentes" role="tabpanel" aria-labelledby="tab-docentes" tabindex="0">
+        <article class="card">
+          <header class="card-header gestion-card-header">
+            <div>
+              <h2 class="h5 mb-0">Docentes</h2>
+              <p class="text-secondary small mb-0">Crea las cuentas de los docentes y administra su acceso.</p>
+            </div>
+            <div class="gestion-buscador">
+              <label class="visually-hidden" for="buscar-docentes">Buscar docente</label>
+              <input class="form-control form-control-sm" id="buscar-docentes" type="search" placeholder="Buscar por nombre, cedula o usuario" data-filtrar-tabla="tabla-docentes">
+            </div>
+          </header>
+
+          <div class="gestion-form">
+            <form class="row g-3 align-items-end" method="post" action="/gestion/docentes">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-sm-6">
+                <label class="form-label" for="docente-nombre">Nombre completo</label>
+                <input class="form-control" id="docente-nombre" name="nombre" maxlength="120" placeholder="Nombre del docente" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="docente-cedula">Cedula</label>
+                <input class="form-control" id="docente-cedula" name="cedula" pattern="[0-9]{7,8}" maxlength="8" inputmode="numeric" placeholder="12345678" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="docente-usuario">Usuario</label>
+                <input class="form-control" id="docente-usuario" name="usuario" pattern="[a-zA-Z0-9._-]{3,50}" maxlength="50" autocomplete="off" placeholder="nombre.apellido" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="docente-clave">Clave inicial (minimo 4 caracteres)</label>
+                <input class="form-control" id="docente-clave" name="clave" type="password" minlength="4" autocomplete="new-password" placeholder="Clave segura" required>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-primary" type="submit">Crear docente</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tabla-docentes">
+              <thead>
+                <tr><th>Docente</th><th>Usuario</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+              </thead>
+              <tbody>
+                <% for (const docente of docentes) { %>
+                  <tr>
+                    <td>
+                      <strong><%= docente.nombre %></strong>
+                      <div class="small text-secondary">C.I. <%= docente.cedula %></div>
+                    </td>
+                    <td><%= docente.usuario %></td>
+                    <td>
+                      <span class="badge <%= docente.activo ? 'text-bg-success' : 'text-bg-secondary' %>"><%= docente.activo ? 'Activo' : 'Inactivo' %></span>
+                    </td>
+                    <td class="text-end">
+                      <div class="gestion-acciones">
+                        <a class="btn btn-outline-primary btn-sm" href="/gestion/editar/docente/<%= docente.id %>">Editar</a>
+                        <% if (docente.activo) { %>
+                          <form method="post" action="/gestion/docentes/<%= docente.id %>/desactivar" data-confirmar="Desactivar a <%= docente.nombre %>? Sus datos historicos se conservaran.">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Desactivar</button>
+                          </form>
+                        <% } %>
+                      </div>
+                    </td>
+                  </tr>
+                <% } %>
+                <% if (docentes.length === 0) { %>
+                  <tr><td colspan="4" class="text-center text-secondary py-4">Todavia no hay docentes registrados.</td></tr>
+                <% } else { %>
+                  <tr data-filtro-vacio hidden><td colspan="4" class="text-center text-secondary py-4">No se encontraron docentes con esa busqueda.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+  <script src="/js/gestion.js" defer></script>
+</body>
+</html>

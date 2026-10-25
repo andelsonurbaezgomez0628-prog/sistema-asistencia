@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reportes | Asistencia Escolar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/estilos.css" rel="stylesheet">
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <%
+    const fechaCorta = (valor) => String(valor).split('-').reverse().join('/');
+    const segmentos = [
+      { clave: 'presentes', etiqueta: 'Asistencias', valor: resumenRegistros.presentes, color: '#198754' },
+      { clave: 'tardanzas', etiqueta: 'Tardanzas', valor: resumenRegistros.tardanzas, color: '#e6a817' },
+      { clave: 'ausencias', etiqueta: 'Ausencias', valor: resumenRegistros.ausencias, color: '#dc3545' },
+      { clave: 'justificadas', etiqueta: 'Justificadas', valor: resumenRegistros.justificadas, color: '#3267e3' },
+    ];
+    // Cada porcion usa el perimetro del circulo como 100 unidades. El desfase
+    // negativo arranca cada porcion donde termina la anterior.
+    let acumulado = 0;
+    for (const segmento of segmentos) {
+      segmento.porcentaje = totalRegistros > 0 ? (segmento.valor / totalRegistros) * 100 : 0;
+      segmento.desfase = -acumulado;
+      acumulado += segmento.porcentaje;
+    }
+  %>
+  <main class="container py-4">
+    <h1 class="h3 mb-3">Reporte de asistencia</h1>
+    <form class="row g-2 align-items-end mb-3" method="get" action="/reportes">
+      <div class="col-sm-6 col-lg-2"><label class="form-label" for="desde">Desde</label><input class="form-control" type="date" id="desde" name="desde" value="<%= desde %>" max="<%= hoy %>" required></div>
+      <div class="col-sm-6 col-lg-2"><label class="form-label" for="hasta">Hasta</label><input class="form-control" type="date" id="hasta" name="hasta" value="<%= hasta %>" max="<%= hoy %>" required></div>
+      <div class="col-sm-6 col-lg-3"><label class="form-label" for="curso">Curso</label><select class="form-select" id="curso" name="curso"><option value="">Todos</option><% for (const curso of cursos) { %><option value="<%= curso.id %>" <%= idCurso === Number(curso.id) ? 'selected' : '' %>><%= curso.nombre %></option><% } %></select></div>
+      <div class="col-sm-6 col-lg-3"><label class="form-label" for="seccion">Seccion</label><select class="form-select" id="seccion" name="seccion"><option value="">Todas</option><% for (const seccion of secciones) { %><option value="<%= seccion.id %>" <%= idSeccion === Number(seccion.id) ? 'selected' : '' %>><%= seccion.curso %> · <%= seccion.nombre %></option><% } %></select></div>
+      <div class="col-lg-2"><button class="btn btn-primary w-100" type="submit">Filtrar</button></div>
+    </form>
+
+    <p class="reportes-rango text-secondary">
+      Del <strong><%= fechaCorta(desde) %></strong> al <strong><%= fechaCorta(hasta) %></strong>
+      · <%= filas.length %> estudiante(s) · Asistencia general <strong><%= asistenciaGeneral %>%</strong>
+    </p>
+
+    <section class="reportes-graficos" aria-label="Reportes visuales">
+      <article class="card grafico-card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Distribucion de registros</h2>
+          <p class="grafico-subtitulo mb-0"><%= totalRegistros %> registro(s) en el rango elegido</p>
+        </div>
+        <div class="card-body grafico-dona-cuerpo">
+          <svg class="grafico-dona" viewBox="0 0 42 42" role="img" aria-label="Grafico de pastel: distribucion de registros entre asistencias, tardanzas, ausencias y justificadas">
+            <circle class="grafico-dona-base" cx="21" cy="21" r="15.9155"></circle>
+            <% for (const segmento of segmentos) { %>
+              <% if (segmento.porcentaje > 0) { %>
+                <circle cx="21" cy="21" r="15.9155" fill="none" stroke="<%= segmento.color %>" stroke-width="6"
+                  pathLength="100" stroke-dasharray="<%= segmento.porcentaje.toFixed(2) %> <%= (100 - segmento.porcentaje).toFixed(2) %>"
+                  stroke-dashoffset="<%= segmento.desfase.toFixed(2) %>" transform="rotate(-90 21 21)"></circle>
+              <% } %>
+            <% } %>
+            <text class="grafico-dona-valor" x="21" y="20.5" text-anchor="middle"><%= totalRegistros > 0 ? `${asistenciaGeneral}%` : '--' %></text>
+            <text class="grafico-dona-etiqueta" x="21" y="24.5" text-anchor="middle">asistencia</text>
+          </svg>
+          <ul class="grafico-leyenda">
+            <% for (const segmento of segmentos) { %>
+              <li class="grafico-leyenda-item">
+                <span class="grafico-leyenda-color grafico-color-<%= segmento.clave %>" aria-hidden="true"></span>
+                <span class="grafico-leyenda-nombre"><%= segmento.etiqueta %></span>
+                <span class="grafico-leyenda-cifra"><%= segmento.valor %> <span class="grafico-leyenda-pct">(<%= Math.round(segmento.porcentaje) %>%)</span></span>
+              </li>
+            <% } %>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card grafico-card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Asistencia por curso</h2>
+          <p class="grafico-subtitulo mb-0">Tardanza cuenta como asistencia</p>
+        </div>
+        <div class="card-body">
+          <% if (resumenCursos.length === 0) { %>
+            <p class="text-secondary mb-0">No hay registros para esos filtros.</p>
+          <% } else { %>
+            <ul class="grafico-barras">
+              <% for (const item of resumenCursos) { %>
+                <li class="grafico-barra">
+                  <span class="grafico-barra-nombre" title="<%= item.curso %>"><%= item.curso %></span>
+                  <progress class="barra-asistencia" max="100" value="<%= item.porcentaje %>" aria-label="Asistencia de <%= item.curso %>: <%= item.porcentaje %>%"><%= item.porcentaje %>%</progress>
+                  <span class="grafico-barra-valor"><%= item.porcentaje %>%</span>
+                  <span class="grafico-barra-detalle"><%= item.asistencias %> de <%= item.dias %> dia(s)</span>
+                </li>
+              <% } %>
+            </ul>
+          <% } %>
+        </div>
+      </article>
+    </section>
+
+    <h2 class="h5 mb-2">Detalle por estudiante</h2>
+    <div class="table-responsive"><table class="table table-hover align-middle">
+      <thead><tr><th>Estudiante</th><th>Curso / seccion</th><th>Asistencias</th><th>Tardanzas</th><th>Ausencias</th><th>Justificadas</th><th class="col-porcentaje">% asistencia</th></tr></thead>
+      <tbody><% for (const fila of filas) { const diasRegistradosFila = Number(fila.dias_registrados || 0); const porcentaje = diasRegistradosFila > 0 ? Math.round((Number(fila.asistencias || 0) / diasRegistradosFila) * 100) : 0; %>
+        <tr>
+          <td><%= fila.apellido %>, <%= fila.nombre %><div class="small text-secondary">Lista N° <%= fila.numero_lista %></div></td>
+          <td><%= fila.curso %> · <%= fila.seccion %></td>
+          <td><%= fila.asistencias || 0 %></td>
+          <td><%= fila.tardanzas || 0 %></td>
+          <td><%= fila.ausencias || 0 %></td>
+          <td><%= fila.justificadas || 0 %></td>
+          <td class="col-porcentaje">
+            <% if (diasRegistradosFila > 0) { %>
+              <div class="porcentaje-asistencia">
+                <span class="porcentaje-asistencia-valor"><%= porcentaje %>%</span>
+                <progress class="barra-asistencia" max="100" value="<%= porcentaje %>" aria-label="Asistencia de <%= fila.nombre %> <%= fila.apellido %>: <%= porcentaje %>%"><%= porcentaje %>%</progress>
+              </div>
+            <% } else { %>
+              <span class="porcentaje-sin-datos">Sin registros</span>
+            <% } %>
+          </td>
+        </tr>
+      <% } %></tbody>
+    </table></div>
+    <% if (filas.length === 0) { %><p class="text-secondary">No hay registros para esos filtros.</p><% } %>
+  </main>
+</body>
+</html>

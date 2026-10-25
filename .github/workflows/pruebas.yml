@@ -1,0 +1,46 @@
+# ==============================================================
+# .github/workflows/pruebas.yml
+# --------------------------------------------------------------
+# Prueba automatica de GitHub: cada vez que subimos codigo (push) o se
+# abre un Pull Request, GitHub instala Node y ejecuta las comprobaciones del proyecto:
+#
+#   1) Revisar sintaxis JavaScript y plantillas
+#   2) Ejecutar pruebas del algoritmo y del parser SQL
+#
+# Si algo falla, el commit aparece en rojo en GitHub y el equipo se
+# entera antes de la demostracion. Cuesta cero y se ve profesional ante
+# el jurado: "el codigo se prueba solo en cada cambio".
+#
+# Nota: la prueba unitaria no requiere MySQL; las comprobaciones de
+# permisos contra datos reales quedan en la guia de validacion manual.
+# ==============================================================
+
+name: Pruebas automaticas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Descargar el codigo del repositorio
+      - name: Bajar el codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias bloqueadas
+        run: npm ci
+
+      - name: Revisar sintaxis
+        run: npm run check
+
+      - name: Ejecutar pruebas
+        run: npm test

@@ -1,0 +1,27 @@
+# .htaccess de la raiz  ->  Que NO se puede descargar desde el navegador
+#
+# Apache (el que trae XAMPP) lee este archivo antes de responder.
+# Sirve de red de seguridad: aunque alguien escriba la direccion a mano,
+# los archivos de texto del proyecto no se descargan.
+#
+# <FilesMatch> compara el NOMBRE del archivo (la expresion regular) y
+# "\." significa un punto literal. "Require all denied" es la forma de
+# decir "prohibido" en Apache 2.4, que es el version que usa XAMPP.
+
+# 1) Archivos de texto plano: documentacion, SQL, configuracion del contenedor
+<FilesMatch "\.(md|sql|conf|json|yml)$">
+    Require all denied
+</FilesMatch>
+
+# 2) Cualquier archivo oculto (empieza con punto): .gitignore, .github...
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# 3) El legado PHP ya se retiro; se mantiene el bloqueo por si se agrega por error.
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# 4) No publicar el contenido de directorios.
+Options -Indexes

@@ -1,0 +1,25 @@
+# .gitignore - lo que NO se sube a GitHub
+# ---------------------------------------
+# Regla de oro: nunca subir contrasenas, URI de base de datos ni tokens.
+
+# Paquetes y herramientas locales
+node_modules/
+
+# Archivos del sistema operativo y del editor
+.DS_Store
+Thumbs.db
+*.~lock.*
+.idea/
+.vscode/*
+!.vscode/launch.json
+
+# Residuos de respaldos
+*.sql.bak
+*.log
+respaldos/
+
+# Credenciales y respaldos: solo se versiona el ejemplo sin secretos.
+.env
+.env.*
+!.env.example
+respaldo*.sql
