@@ -19,6 +19,21 @@ test('centraliza valores y exige verificacion TLS completa', () => {
   assert.equal(uri.searchParams.get('channel_binding'), 'require');
   assert.equal(configuracion.port, 4444);
   assert.equal(configuracion.cookieSecure, true);
+  assert.equal(configuracion.trustProxy, true);
+  assert.equal(configuracion.host, '0.0.0.0');
+});
+
+test('detecta Render aunque NODE_ENV no este definido', () => {
+  const configuracion = crearConfiguracion({ ...base, RENDER: 'true' });
+  assert.equal(configuracion.trustProxy, true);
+  assert.equal(configuracion.cookieSecure, true);
+  assert.equal(configuracion.host, '0.0.0.0');
+});
+
+test('en desarrollo local no confia en el proxy', () => {
+  const configuracion = crearConfiguracion(base);
+  assert.equal(configuracion.trustProxy, false);
+  assert.equal(configuracion.cookieSecure, false);
 });
 
 test('rechaza una URI que no sea PostgreSQL', () => {

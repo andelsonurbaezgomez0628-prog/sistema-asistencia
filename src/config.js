@@ -26,15 +26,18 @@ export function crearConfiguracion(variables = process.env) {
   }
 
   const nodeEnv = variables.NODE_ENV || 'development';
-  // En produccion el hosting (Render) necesita escuchar en todas las interfaces.
-  const hostPorDefecto = nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1';
+  // Render define RENDER=true aunque NODE_ENV no se configure. Detectarlo evita
+  // que el servicio quede escuchando solo en loopback y sin cookies Secure.
+  const enHosting = nodeEnv === 'production' || Boolean(variables.RENDER);
   return Object.freeze({
     nodeEnv,
-    host: variables.HOST || hostPorDefecto,
+    // 0.0.0.0 permite que el proxy del hosting alcance la aplicacion.
+    host: variables.HOST || '0.0.0.0',
     port,
     databaseUrl: databaseUrl.toString(),
     sessionSecret,
-    cookieSecure: nodeEnv === 'production',
+    cookieSecure: enHosting,
+    trustProxy: enHosting,
   });
 }
 

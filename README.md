@@ -30,9 +30,9 @@ La regla pura esta en [src/alertas.js](src/alertas.js). Las consultas de seguimi
 - Configuracion general en `src/config.js`; secretos exclusivamente en `.env`.
 - Bootstrap 5 y CSS del proyecto.
 
-Node sirve la aplicacion en `127.0.0.1:3000` en desarrollo y en `0.0.0.0:$PORT` cuando
-`NODE_ENV=production` (requisito de Render). El runtime PHP anterior se retiro del proyecto;
-solo queda Node.js como servidor y `.htaccess` como bloqueo de respaldo.
+Node sirve la aplicacion en `0.0.0.0:$PORT` (o `127.0.0.1:3000` si se define `HOST`) para que
+el proxy de Render pueda alcanzarla. El runtime PHP anterior se retiro del proyecto; solo queda
+Node.js como servidor y `.htaccess` como bloqueo de respaldo.
 
 ## Configuracion e instalacion
 
