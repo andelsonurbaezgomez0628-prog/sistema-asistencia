@@ -29,7 +29,7 @@ docente ve cantidades calculadas solo a partir de sus secciones asignadas.
 3. Si hace falta, agrega una observacion breve.
 4. Pulsa **Guardar y recalcular alertas**.
 
-Un docente solo puede registrar asistencia para sus secciones. El servidor rechaza una lista
+Un docente solo puede registrar asistencia para las secciones que tiene asignadas. El servidor rechaza una lista
 incompleta, estados no permitidos o identificadores de estudiantes de otra seccion. Guardar el
 mismo estudiante y fecha actualiza el registro existente. No se aceptan fechas futuras.
 
@@ -62,6 +62,10 @@ cuentas de coordinacion con el rol fijado en el servidor; no se puede desactivar
 ni dejar el sistema sin al menos un administrador activo. No se permite eliminar cursos con
 secciones ni secciones con estudiantes. Las cuentas de docentes y administradores se crean con una
 contrasena de al menos 4 caracteres.
+
+Al crear o editar una seccion, coordinacion puede marcar uno o varios docentes activos. Todos los
+docentes marcados ven y gestionan la asistencia, reportes y alertas de esa seccion. Si un curso
+tiene varias secciones, la asignacion se realiza en cada seccion.
 
 ## 7. Reportar un problema
 

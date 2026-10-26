@@ -58,3 +58,23 @@ test('gestion renderiza la pestana para crear administradores', async () => {
   assert.match(html, /action="\/gestion\/administradores"/);
   assert.match(html, /Crear administrador/);
 });
+
+test('editar seccion muestra varios docentes y marca los que ya estan asignados', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/editar.ejs', import.meta.url)), {
+    tipo: 'seccion',
+    registro: { id: 4, nombre: 'A', anio_escolar: '2026-2027', curso_id: 2 },
+    cursos: [{ id: 2, nombre: 'Quinto' }],
+    secciones: [],
+    docentes: [
+      { id: 7, nombre: 'Docente Uno', activo: true },
+      { id: 8, nombre: 'Docente Dos', activo: true },
+    ],
+    docentesAsignados: [7, 8],
+    csrfToken: 'token-demo',
+    flash: null,
+    usuario: { id: 1, nombre: 'Admin', rol: 'admin' },
+    rutaActual: '/gestion/editar/seccion/4',
+  });
+  assert.equal((html.match(/name="docente_ids"/g) || []).length, 2);
+  assert.equal((html.match(/checked/g) || []).length, 2);
+});

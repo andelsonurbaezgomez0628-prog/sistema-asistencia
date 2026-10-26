@@ -30,14 +30,15 @@ autorizacion por objeto y validacion escolar con usuarios.
 | A3 | Superar 10 intentos de login en 15 min | Rate limit detiene solicitudes adicionales |
 | A4 | Enviar POST sin CSRF o con token alterado | HTTP 403; no cambia ningun dato |
 | A5 | Desactivar cuenta en PostgreSQL y pedir ruta protegida | La sesion se invalida al volver a consultar el usuario |
-| A6 | Docente A solicita seccion de docente B | HTTP 403; no se muestran estudiantes |
+| A6 | Docente asignado solicita seccion ajena | HTTP 403; no se muestran estudiantes |
 | A7 | Docente A incluye estudiante ajeno en asistencia | Solicitud rechazada y transaccion revertida |
 | A8 | Docente A intenta atender alerta ajena | HTTP 403; alerta sigue pendiente |
-| A9 | Alterar `rol`, `docente_id` o `usuario_id` en POST | No cambia el permiso ni el alcance |
-| A10 | Usar GET en rutas de mutacion | No se ejecuta ninguna modificacion |
-| A11 | Cerrar sesion y usar boton atras | Las rutas protegidas vuelven a login |
-| A12 | Cambiar clave con actual incorrecta o confirmacion distinta | Rechaza cambio |
-| A13 | Cambiar clave correctamente | Guarda hash bcrypt y regenera sesion |
+| A9 | Alterar `rol`, `docente_ids` o `usuario_id` en POST | No cambia el permiso ni el alcance |
+| A10 | Marcar dos docentes al crear una seccion | Ambos ven la seccion; un tercero no asignado recibe HTTP 403 |
+| A11 | Usar GET en rutas de mutacion | No se ejecuta ninguna modificacion |
+| A12 | Cerrar sesion y usar boton atras | Las rutas protegidas vuelven a login |
+| A13 | Cambiar clave con actual incorrecta o confirmacion distinta | Rechaza cambio |
+| A14 | Cambiar clave correctamente | Guarda hash bcrypt y regenera sesion |
 
 ## Negocio y flujos
 

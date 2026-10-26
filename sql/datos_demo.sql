@@ -39,13 +39,16 @@ INSERT INTO cursos (id, nombre, descripcion) VALUES
 (3, '4to Año General',     'Cuarto año del tronco común');
 
 -- ----------------------------------------------------------------
--- SECCIONES (curso + docente asignado)
+-- SECCIONES (un curso puede tener varias secciones)
 -- ----------------------------------------------------------------
-INSERT INTO secciones (id, nombre, curso_id, docente_id, anio_escolar) VALUES
-(1, 'Sección A', 1, 2, '2025-2026'),   -- profesor1
-(2, 'Sección B', 1, 2, '2025-2026'),   -- profesor1
-(3, 'Sección A', 2, 3, '2025-2026'),   -- profesor2
-(4, 'Sección A', 3, 3, '2025-2026');   -- profesor2
+INSERT INTO secciones (id, nombre, curso_id, anio_escolar) VALUES
+(1, 'Sección A', 1, '2025-2026'),
+(2, 'Sección B', 1, '2025-2026'),
+(3, 'Sección A', 2, '2025-2026'),
+(4, 'Sección A', 3, '2025-2026');
+
+INSERT INTO seccion_docentes (seccion_id, docente_id) VALUES
+(1, 2), (2, 2), (3, 3), (4, 3);
 
 -- ----------------------------------------------------------------
 -- ESTUDIANTES (20: los seis primeros estan en la Seccion A (1), que es

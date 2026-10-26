@@ -10,7 +10,7 @@ docentes y estudiantes en menos de siete dias.
 - Generar alertas explicables a partir de ausencias y rachas consecutivas.
 - Filtrar reportes por curso, seccion y fechas; tardanza cuenta como asistencia.
 - Administrar cursos, secciones, estudiantes, docentes y administradores desde la cuenta coordinadora.
-- Restringir a cada docente a sus secciones y estudiantes.
+- Asignar varios docentes a una seccion y restringir cada cuenta a sus secciones y estudiantes.
 
 ## Regla de alerta
 

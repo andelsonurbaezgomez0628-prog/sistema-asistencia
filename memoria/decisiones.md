@@ -356,3 +356,17 @@ producia un error 500. Ahora se usan `cursosEncontrados` y `docentesEncontrados`
 
 - **Verificacion:** `npm test` (49 pruebas, con una regresion que vigila la destructuracion) y
   `npm run check`. Se creo y elimino una seccion de prueba contra la base real sin dejar datos.
+
+## 2026-10-26 - Varios docentes por seccion
+
+**Decision:** permitir que una seccion tenga uno o varios docentes mediante la relacion
+`seccion_docentes`. Coordinacion marca docentes al crear o editar una seccion. Cada docente sigue
+limitado a las secciones relacionadas con su cuenta; un curso completo se asigna marcando los
+docentes en cada una de sus secciones.
+
+**Migracion:** `sql/migracion_docentes_seccion.sql` copia las asignaciones actuales antes de quitar
+`secciones.docente_id`; no borra estudiantes, asistencias ni alertas.
+
+- **Verificacion:** `npm run check`; `npm test` (52 pruebas). `npm run db:setup` conservo datos,
+  migro las 4 asignaciones existentes y verifico 4 secciones, 58 estudiantes y 48 asistencias.
+  Una prueba dentro de una transaccion y revertida confirmo dos docentes en una misma seccion.

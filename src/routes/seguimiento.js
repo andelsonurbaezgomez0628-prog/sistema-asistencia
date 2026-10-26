@@ -47,7 +47,9 @@ function esFechaValida(fecha) {
 }
 
 async function seccionesDisponibles(usuario) {
-  const filtroDocente = usuario.rol === 'docente' ? 'WHERE s.docente_id = $1' : '';
+  const filtroDocente = usuario.rol === 'docente'
+    ? 'WHERE EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $1)'
+    : '';
   const valores = usuario.rol === 'docente' ? [usuario.id] : [];
   return consulta(
     `SELECT s.id, s.nombre, c.nombre AS curso
@@ -151,7 +153,9 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
     }
 
     const { rows: secciones } = await conexion.query(
-      `SELECT id FROM secciones WHERE id = $1 ${req.user.rol === 'docente' ? 'AND docente_id = $2' : ''}`,
+      `SELECT id FROM secciones WHERE id = $1 ${req.user.rol === 'docente'
+        ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = secciones.id AND sd.docente_id = $2)'
+        : ''}`,
       req.user.rol === 'docente' ? [idSeccion, req.user.id] : [idSeccion],
     );
     if (secciones.length === 0) {
@@ -220,7 +224,7 @@ router.get('/alertas', requerirLogin, async (req, res, next) => {
     const valores = [];
     if (req.user.rol === 'docente') {
       valores.push(req.user.id);
-      filtros.push(`s.docente_id = $${valores.length}`);
+      filtros.push(`EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $${valores.length})`);
     }
     if (nivel) {
       valores.push(nivel);
@@ -294,19 +298,23 @@ router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (req, res
   try {
     await conexion.query('BEGIN');
     const { rows: alertas } = await conexion.query(
-      `SELECT a.id, a.mensaje, a.estado, s.docente_id
+      `SELECT a.id, a.mensaje, a.estado,
+        EXISTS (
+          SELECT 1 FROM seccion_docentes sd
+          WHERE sd.seccion_id = s.id AND sd.docente_id = $2
+        ) AS docente_asignado
        FROM alertas a
        INNER JOIN estudiantes e ON e.id = a.estudiante_id
        INNER JOIN secciones s ON s.id = e.seccion_id
       WHERE a.id = $1 FOR UPDATE`,
-      [idAlerta],
+      [idAlerta, req.user.id],
     );
     const alerta = alertas[0];
     if (!alerta) {
       await conexion.query('ROLLBACK');
       return res.status(404).render('error', { mensaje: 'La alerta no existe.' });
     }
-    if (req.user.rol === 'docente' && Number(alerta.docente_id) !== Number(req.user.id)) {
+    if (req.user.rol === 'docente' && !alerta.docente_asignado) {
       await conexion.query('ROLLBACK');
       return res.status(403).render('error', { mensaje: 'No tienes acceso a esa alerta.' });
     }
@@ -349,7 +357,8 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
       : await consulta(
         `SELECT DISTINCT c.id, c.nombre FROM cursos c
          INNER JOIN secciones s ON s.curso_id = c.id
-         WHERE s.docente_id = $1 ORDER BY c.nombre`,
+         INNER JOIN seccion_docentes sd ON sd.seccion_id = s.id
+         WHERE sd.docente_id = $1 ORDER BY c.nombre`,
         [req.user.id],
       );
 
@@ -357,7 +366,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
     const filtros = ['e.activo IS TRUE'];
     if (req.user.rol === 'docente') {
       valores.push(req.user.id);
-      filtros.push(`s.docente_id = $${valores.length}`);
+      filtros.push(`EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $${valores.length})`);
     }
     if (idCurso) {
       valores.push(idCurso);

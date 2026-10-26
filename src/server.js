@@ -142,7 +142,10 @@ app.get('/', requerirLogin, async (req, res, next) => {
          FROM secciones s
          LEFT JOIN estudiantes e ON e.seccion_id = s.id AND e.activo = TRUE
          LEFT JOIN alertas a ON a.estudiante_id = e.id AND a.estado = 'pendiente'
-         WHERE s.docente_id = $1`,
+         WHERE EXISTS (
+           SELECT 1 FROM seccion_docentes sd
+           WHERE sd.seccion_id = s.id AND sd.docente_id = $1
+         )`,
         [req.user.id],
       );
       resumen = filas[0];

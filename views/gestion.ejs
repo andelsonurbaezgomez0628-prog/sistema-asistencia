@@ -128,7 +128,7 @@
           <header class="card-header gestion-card-header">
             <div>
               <h2 class="h5 mb-0">Secciones</h2>
-              <p class="text-secondary small mb-0">Asigna cada seccion a un curso y a un docente activo.</p>
+              <p class="text-secondary small mb-0">Asigna cada seccion a un curso y a uno o varios docentes activos.</p>
             </div>
             <span class="badge text-bg-light"><%= secciones.length %> registradas</span>
           </header>
@@ -140,7 +140,7 @@
                 <label class="form-label" for="seccion-nombre">Seccion</label>
                 <input class="form-control" id="seccion-nombre" name="nombre" maxlength="50" placeholder="Ej. A" required>
               </div>
-              <div class="col-sm-6 col-lg-3">
+              <div class="col-sm-6 col-lg-2">
                 <label class="form-label" for="seccion-curso">Curso</label>
                 <select class="form-select" id="seccion-curso" name="curso_id" required>
                   <option value="">Seleccionar curso</option>
@@ -149,20 +149,23 @@
                   <% } %>
                 </select>
               </div>
-              <div class="col-sm-6 col-lg-3">
-                <label class="form-label" for="seccion-docente">Docente</label>
-                <select class="form-select" id="seccion-docente" name="docente_id" required>
-                  <option value="">Seleccionar docente</option>
+              <fieldset class="col-sm-6 col-lg-3">
+                <legend class="form-label mb-1">Docentes</legend>
+                <div class="gestion-docentes-seleccion">
                   <% for (const docente of docentes.filter((item) => item.activo)) { %>
-                    <option value="<%= docente.id %>"><%= docente.nombre %></option>
+                    <label class="form-check gestion-docente-opcion">
+                      <input class="form-check-input" type="checkbox" name="docente_ids" value="<%= docente.id %>">
+                      <span class="form-check-label"><%= docente.nombre %></span>
+                    </label>
                   <% } %>
-                </select>
-              </div>
+                </div>
+                <div class="form-text">Selecciona uno o varios.</div>
+              </fieldset>
               <div class="col-sm-6 col-lg-2">
                 <label class="form-label" for="seccion-anio">Ano escolar</label>
                 <input class="form-control" id="seccion-anio" name="anio_escolar" value="2026-2027" pattern="[0-9]{4}-[0-9]{4}" required>
               </div>
-              <div class="col-lg-2">
+              <div class="col-lg-3">
                 <button class="btn btn-primary w-100" type="submit">Crear seccion</button>
               </div>
             </form>
@@ -171,7 +174,7 @@
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
               <thead>
-                <tr><th>Seccion</th><th>Curso</th><th>Docente</th><th>Estudiantes</th><th class="text-end">Acciones</th></tr>
+                <tr><th>Seccion</th><th>Curso</th><th>Docentes</th><th>Estudiantes</th><th class="text-end">Acciones</th></tr>
               </thead>
               <tbody>
                 <% for (const seccion of secciones) { %>
@@ -181,7 +184,7 @@
                       <div class="small text-secondary"><%= seccion.anio_escolar %></div>
                     </td>
                     <td><%= seccion.curso %></td>
-                    <td><%= seccion.docente %></td>
+                    <td><%= seccion.docentes %></td>
                     <td><span class="gestion-contador"><%= seccion.total_estudiantes %></span></td>
                     <td class="text-end">
                       <div class="gestion-acciones">

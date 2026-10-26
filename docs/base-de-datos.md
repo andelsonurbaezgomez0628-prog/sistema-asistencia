@@ -10,11 +10,11 @@ ficticios en `sql/datos_demo.sql` y las sesiones en `sql/sesiones.sql`. Node.js 
 npm run db:setup
 ```
 
-El instalador conserva el esquema completo y sus datos. Una base vacia recibe las seis tablas
+El instalador conserva el esquema completo y sus datos. Una base vacia recibe las tablas
 academicas, el escenario demo y una tabla separada para sesiones. Si detecta tablas parciales,
-se detiene. Si la base ya existia con `estudiantes.cedula`, aplica
-`sql/migracion_numero_lista.sql` para conservar estudiantes, asistencias y alertas. La
-reinstalacion destructiva exige respaldo y confirmacion:
+se detiene. En esquemas anteriores aplica `sql/migracion_numero_lista.sql` cuando corresponde y
+`sql/migracion_docentes_seccion.sql` para conservar las asignaciones existentes al pasar a varios
+docentes por seccion. La reinstalacion destructiva exige respaldo y confirmacion:
 
 ```powershell
 npm run db:setup -- --forzar --confirmar
@@ -23,16 +23,17 @@ npm run db:setup -- --forzar --confirmar
 ## 2. Relaciones
 
 ```text
-usuarios 1:N secciones N:1 cursos
+usuarios N:M secciones mediante seccion_docentes; secciones N:1 cursos
 secciones 1:N estudiantes
 estudiantes 1:N asistencia (UNIQUE estudiante_id + fecha)
 estudiantes 1:N alertas
 sesiones: persistencia independiente de login
 ```
 
-Un docente tiene secciones asignadas. Cada estudiante pertenece a una seccion. Las claves
+Una seccion puede tener varios docentes y cada docente puede estar asignado a varias secciones.
+El acceso se autoriza por esa relacion. Cada estudiante pertenece a una seccion. Las claves
 foraneas impiden referencias huerfanas; las rutas ademas verifican que cada objeto pertenezca
-a la cuenta autenticada.
+a una seccion asignada a la cuenta autenticada.
 
 ## 3. Tablas academicas
 
@@ -40,7 +41,8 @@ a la cuenta autenticada.
 |---|---|---|
 | `usuarios` | identidad, `password_hash`, `rol`, `activo BOOLEAN` | usuario/cedula unicos; roles admin/docente |
 | `cursos` | nombre y descripcion | nombre unico |
-| `secciones` | curso, docente, ano escolar | nombre unico dentro del curso |
+| `secciones` | curso, ano escolar | nombre unico dentro del curso |
+| `seccion_docentes` | seccion, docente | clave compuesta; un docente puede compartir la seccion |
 | `estudiantes` | numero de lista, datos, seccion y activo | numero unico dentro de la seccion (1-40); desactivar preserva historial |
 | `asistencia` | estudiante, fecha, estado, autor | UNIQUE por estudiante/fecha; enum controlado con CHECK |
 | `alertas` | nivel, faltas, racha, explicacion, estado | conserva evidencia del calculo |

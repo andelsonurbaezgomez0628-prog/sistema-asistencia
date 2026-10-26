@@ -60,9 +60,10 @@ lee `.env` localmente; no copies `DATABASE_URL` a `launch.json`.
 
 ## 3. Instalador PostgreSQL
 
-`npm run db:setup` usa la misma `DATABASE_URL` que la aplicacion. Si las seis tablas academicas
-ya existen, conserva datos. Si el esquema esta incompleto, se detiene y pide revision manual.
-Una base vacia recibe las seis tablas, la demo ficticia y la tabla `sesiones`.
+`npm run db:setup` usa la misma `DATABASE_URL` que la aplicacion. Si las seis tablas base ya
+existen, conserva datos y aplica migraciones pendientes. Una base vacia recibe las tablas
+academicas, la demo ficticia y la tabla `sesiones`. Si el esquema base esta incompleto, se detiene
+y pide revision manual.
 
 La unica opcion destructiva requiere respaldo y confirmacion explicita:
 

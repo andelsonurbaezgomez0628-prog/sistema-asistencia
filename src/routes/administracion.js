@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { consulta } from '../db.js';
+import { db, consulta } from '../db.js';
 import { protegerCsrf, requerirAdmin, validarId } from '../security.js';
 
 const router = Router();
@@ -22,6 +22,67 @@ const contarAdminsActivos = async () => {
   return Number(filas[0].total);
 };
 
+function normalizarIdsDocentes(valor) {
+  const lista = Array.isArray(valor) ? valor : typeof valor === 'string' ? [valor] : [];
+  if (lista.length === 0 || lista.length > 100) return null;
+  const ids = lista.map(validarId);
+  if (ids.some((id) => id === null) || new Set(ids).size !== ids.length) return null;
+  return ids;
+}
+
+async function docentesValidos(ids, seccionId = null) {
+  const filas = seccionId
+    ? await consulta(
+      `SELECT u.id FROM usuarios u
+       WHERE u.id = ANY($1::integer[]) AND u.rol = 'docente'
+         AND (u.activo IS TRUE OR EXISTS (
+           SELECT 1 FROM seccion_docentes sd
+           WHERE sd.seccion_id = $2 AND sd.docente_id = u.id
+         ))`,
+      [ids, seccionId],
+    )
+    : await consulta(
+      "SELECT id FROM usuarios WHERE id = ANY($1::integer[]) AND rol = 'docente' AND activo IS TRUE",
+      [ids],
+    );
+  return filas.length === ids.length;
+}
+
+async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
+  const conexion = await db.connect();
+  try {
+    await conexion.query('BEGIN');
+    let seccionId = id;
+    if (id) {
+      const resultado = await conexion.query(
+        'UPDATE secciones SET nombre = $1, curso_id = $2, anio_escolar = $3 WHERE id = $4 RETURNING id',
+        [nombre, cursoId, anio, id],
+      );
+      if (resultado.rowCount === 0) throw new Error('La seccion no existe.');
+    } else {
+      const resultado = await conexion.query(
+        'INSERT INTO secciones (nombre, curso_id, anio_escolar) VALUES ($1, $2, $3) RETURNING id',
+        [nombre, cursoId, anio],
+      );
+      seccionId = resultado.rows[0].id;
+    }
+
+    await conexion.query('DELETE FROM seccion_docentes WHERE seccion_id = $1', [seccionId]);
+    await conexion.query(
+      `INSERT INTO seccion_docentes (seccion_id, docente_id)
+       SELECT $1, docente_id FROM unnest($2::integer[]) AS seleccion(docente_id)`,
+      [seccionId, docenteIds],
+    );
+    await conexion.query('COMMIT');
+    return seccionId;
+  } catch (error) {
+    await conexion.query('ROLLBACK');
+    throw error;
+  } finally {
+    conexion.release();
+  }
+}
+
 router.use(requerirAdmin);
 
 router.get('/', async (req, res, next) => {
@@ -33,11 +94,16 @@ router.get('/', async (req, res, next) => {
          GROUP BY c.id, c.nombre, c.descripcion ORDER BY c.nombre`,
       ),
       consulta(
-        `SELECT s.id, s.nombre, s.anio_escolar, s.curso_id, s.docente_id,
-          c.nombre AS curso, u.nombre AS docente,
+        `SELECT s.id, s.nombre, s.anio_escolar, s.curso_id,
+          c.nombre AS curso,
+          COALESCE((
+            SELECT STRING_AGG(u.nombre, ', ' ORDER BY u.nombre)
+            FROM seccion_docentes sd INNER JOIN usuarios u ON u.id = sd.docente_id
+            WHERE sd.seccion_id = s.id
+          ), 'Sin docente asignado') AS docentes,
           (SELECT COUNT(*) FROM estudiantes e WHERE e.seccion_id = s.id AND e.activo IS TRUE) AS total_estudiantes
          FROM secciones s INNER JOIN cursos c ON c.id = s.curso_id
-         INNER JOIN usuarios u ON u.id = s.docente_id ORDER BY c.nombre, s.nombre`,
+         ORDER BY c.nombre, s.nombre`,
       ),
       consulta(
         `SELECT e.id, e.numero_lista, e.nombre, e.apellido, e.fecha_nacimiento, e.seccion_id, e.activo,
@@ -64,7 +130,7 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
   const { tipo } = req.params;
   const id = validarId(req.params.id);
   const tablas = {
-    seccion: ['secciones', 'SELECT id, nombre, curso_id, docente_id, anio_escolar FROM secciones WHERE id = $1'],
+    seccion: ['secciones', 'SELECT id, nombre, curso_id, anio_escolar FROM secciones WHERE id = $1'],
     estudiante: ['estudiantes', 'SELECT id, numero_lista, nombre, apellido, fecha_nacimiento, seccion_id, activo FROM estudiantes WHERE id = $1'],
     docente: ['usuarios', "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'docente'"],
     administrador: ['usuarios', "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'admin'"],
@@ -74,12 +140,30 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
   try {
     const filas = await consulta(tablas[tipo][1], [id]);
     if (filas.length === 0) return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
-    const [cursos, secciones, docentes] = await Promise.all([
+    const [cursos, secciones, docentes, docentesAsignados] = await Promise.all([
       tipo === 'seccion' ? consulta('SELECT id, nombre FROM cursos ORDER BY nombre') : [],
       tipo === 'estudiante' ? consulta('SELECT s.id, s.nombre, c.nombre AS curso FROM secciones s INNER JOIN cursos c ON c.id = s.curso_id ORDER BY c.nombre, s.nombre') : [],
-      tipo === 'seccion' ? consulta("SELECT id, nombre FROM usuarios WHERE rol = 'docente' AND (activo IS TRUE OR id = $1) ORDER BY nombre", [filas[0].docente_id]) : [],
+      tipo === 'seccion'
+        ? consulta(
+          `SELECT u.id, u.nombre, u.activo FROM usuarios u
+           WHERE u.rol = 'docente' AND (u.activo IS TRUE OR EXISTS (
+             SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = $1 AND sd.docente_id = u.id
+           )) ORDER BY u.nombre`,
+          [id],
+        )
+        : [],
+      tipo === 'seccion'
+        ? consulta('SELECT docente_id FROM seccion_docentes WHERE seccion_id = $1', [id])
+        : [],
     ]);
-    return res.render('editar', { tipo, registro: filas[0], cursos, secciones, docentes });
+    return res.render('editar', {
+      tipo,
+      registro: filas[0],
+      cursos,
+      secciones,
+      docentes,
+      docentesAsignados: docentesAsignados.map((fila) => Number(fila.docente_id)),
+    });
   } catch (error) {
     return next(error);
   }
@@ -93,19 +177,18 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
   try {
     if (tipo === 'seccion') {
       const cursoId = validarId(String(req.body.curso_id || ''));
-      const docenteId = validarId(String(req.body.docente_id || ''));
+      const docenteIds = normalizarIdsDocentes(req.body.docente_ids);
       const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
       const anio = typeof req.body.anio_escolar === 'string' ? req.body.anio_escolar.trim() : '';
-      if (!cursoId || !docenteId || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
+      if (!cursoId || !docenteIds || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
         req.session.flash = 'Revisa los datos de la seccion.';
         return res.redirect(`/gestion/editar/seccion/${id}`);
       }
-      const [curso, docente] = await Promise.all([
-        consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]),
-        consulta("SELECT id FROM usuarios WHERE id = $1 AND rol = 'docente' AND activo IS TRUE", [docenteId]),
-      ]);
-      if (!curso.length || !docente.length) return res.status(400).render('error', { mensaje: 'Curso o docente no valido.' });
-      await consulta('UPDATE secciones SET nombre = $1, curso_id = $2, docente_id = $3, anio_escolar = $4 WHERE id = $5', [nombre, cursoId, docenteId, anio, id]);
+      const curso = await consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]);
+      if (!curso.length || !(await docentesValidos(docenteIds, id))) {
+        return res.status(400).render('error', { mensaje: 'Curso o docentes no validos.' });
+      }
+      await guardarSeccion({ id, nombre, cursoId, anio, docenteIds });
     } else if (tipo === 'estudiante') {
       const numeroLista = typeof req.body.numero_lista === 'string' ? req.body.numero_lista.trim() : '';
       const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
@@ -145,7 +228,7 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
             return res.redirect(`/gestion/editar/${tipo}/${id}`);
           }
         } else {
-          const asignadas = await consulta('SELECT COUNT(*) AS total FROM secciones WHERE docente_id = $1', [id]);
+          const asignadas = await consulta('SELECT COUNT(*) AS total FROM seccion_docentes WHERE docente_id = $1', [id]);
           if (Number(asignadas[0].total) > 0) {
             req.session.flash = 'Reasigna primero las secciones antes de desactivar el docente.';
             return res.redirect(`/gestion/editar/${tipo}/${id}`);
@@ -236,36 +319,22 @@ router.post('/cursos/:id/eliminar', protegerCsrf, async (req, res, next) => {
 router.post('/secciones', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const cursoId = validarId(String(req.body.curso_id || ''));
-  const docenteId = validarId(String(req.body.docente_id || ''));
+  const docenteIds = normalizarIdsDocentes(req.body.docente_ids);
   const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
   const anio = typeof req.body.anio_escolar === 'string' ? req.body.anio_escolar.trim() : '';
-  if ((req.body.id && !id) || !cursoId || !docenteId || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
+  if ((req.body.id && !id) || !cursoId || !docenteIds || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
     req.session.flash = 'Revisa los datos de la seccion.';
     return res.redirect('/gestion');
   }
 
   try {
-    const [cursosEncontrados, docentesEncontrados] = await Promise.all([
-      consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]),
-      consulta("SELECT id FROM usuarios WHERE id = $1 AND rol = 'docente' AND activo IS TRUE", [docenteId]),
-    ]);
-    if (cursosEncontrados.length === 0 || docentesEncontrados.length === 0) {
+    const cursosEncontrados = await consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]);
+    if (cursosEncontrados.length === 0 || !(await docentesValidos(docenteIds, id))) {
       req.session.flash = 'El curso o docente seleccionado no esta activo.';
       return res.redirect('/gestion');
     }
-    if (id) {
-      await consulta(
-        'UPDATE secciones SET nombre = $1, curso_id = $2, docente_id = $3, anio_escolar = $4 WHERE id = $5',
-        [nombre, cursoId, docenteId, anio, id],
-      );
-      req.session.flash = 'Seccion actualizada.';
-    } else {
-      await consulta(
-        'INSERT INTO secciones (nombre, curso_id, docente_id, anio_escolar) VALUES ($1, $2, $3, $4)',
-        [nombre, cursoId, docenteId, anio],
-      );
-      req.session.flash = 'Seccion creada.';
-    }
+    await guardarSeccion({ id, nombre, cursoId, anio, docenteIds });
+    req.session.flash = id ? 'Seccion actualizada.' : 'Seccion creada.';
     return res.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
@@ -403,7 +472,7 @@ router.post('/docentes/:id/desactivar', protegerCsrf, async (req, res, next) => 
   const id = validarId(req.params.id);
   if (!id) return res.status(400).render('error', { mensaje: 'El docente indicado no es valido.' });
   try {
-    const secciones = await consulta('SELECT COUNT(*) AS total FROM secciones WHERE docente_id = $1', [id]);
+    const secciones = await consulta('SELECT COUNT(*) AS total FROM seccion_docentes WHERE docente_id = $1', [id]);
     if (Number(secciones[0].total) > 0) {
       req.session.flash = 'Reasigna primero las secciones de este docente.';
       return res.redirect('/gestion');

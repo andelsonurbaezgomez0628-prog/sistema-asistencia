@@ -18,7 +18,18 @@
         <div class="col-md-6"><label class="form-label" for="nombre">Nombre</label><input class="form-control" id="nombre" name="nombre" maxlength="50" value="<%= registro.nombre %>" required></div>
         <div class="col-md-6"><label class="form-label" for="anio">Ano escolar</label><input class="form-control" id="anio" name="anio_escolar" pattern="[0-9]{4}-[0-9]{4}" value="<%= registro.anio_escolar %>" required></div>
         <div class="col-md-6"><label class="form-label" for="curso">Curso</label><select class="form-select" id="curso" name="curso_id" required><% for (const curso of cursos) { %><option value="<%= curso.id %>" <%= Number(registro.curso_id) === Number(curso.id) ? 'selected' : '' %>><%= curso.nombre %></option><% } %></select></div>
-        <div class="col-md-6"><label class="form-label" for="docente">Docente</label><select class="form-select" id="docente" name="docente_id" required><% for (const docente of docentes) { %><option value="<%= docente.id %>" <%= Number(registro.docente_id) === Number(docente.id) ? 'selected' : '' %>><%= docente.nombre %></option><% } %></select></div>
+        <fieldset class="col-12">
+          <legend class="form-label">Docentes</legend>
+          <div class="gestion-docentes-seleccion">
+            <% for (const docente of docentes) { %>
+              <label class="form-check gestion-docente-opcion">
+                <input class="form-check-input" type="checkbox" name="docente_ids" value="<%= docente.id %>" <%= docentesAsignados.includes(Number(docente.id)) ? 'checked' : '' %>>
+                <span class="form-check-label"><%= docente.nombre %><%= docente.activo ? '' : ' (inactivo; desmarcar para retirar)' %></span>
+              </label>
+            <% } %>
+          </div>
+          <div class="form-text">Selecciona uno o varios docentes activos.</div>
+        </fieldset>
       <% } else if (tipo === 'estudiante') { %>
         <div class="col-md-4"><label class="form-label" for="numero_lista">Numero de lista</label><input class="form-control" id="numero_lista" name="numero_lista" type="number" min="1" max="40" step="1" value="<%= registro.numero_lista %>" required></div>
         <div class="col-md-4"><label class="form-label" for="nombre">Nombre</label><input class="form-control" id="nombre" name="nombre" maxlength="80" value="<%= registro.nombre %>" required></div>

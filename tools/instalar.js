@@ -9,7 +9,8 @@ const carpetaActual = path.dirname(fileURLToPath(import.meta.url));
 const raiz = path.resolve(carpetaActual, '..');
 const forzar = process.argv.includes('--forzar');
 const confirmar = process.argv.includes('--confirmar');
-const nombresTablas = ['usuarios', 'cursos', 'secciones', 'estudiantes', 'asistencia', 'alertas'];
+const tablasAcademicas = ['usuarios', 'cursos', 'secciones', 'estudiantes', 'asistencia', 'alertas'];
+const nombresTablas = [...tablasAcademicas, 'seccion_docentes'];
 const { Pool } = pg;
 const pool = new Pool({
   connectionString: config.databaseUrl,
@@ -50,15 +51,36 @@ async function migrarNumeroLista() {
   }
 }
 
+async function migrarDocentesSeccion() {
+  const { rows: [columnas] } = await pool.query(
+    `SELECT
+       EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = current_schema() AND table_name = 'secciones' AND column_name = 'docente_id'
+       ) AS tiene_docente_id,
+       EXISTS (
+         SELECT 1 FROM information_schema.tables
+         WHERE table_schema = current_schema() AND table_name = 'seccion_docentes'
+       ) AS tiene_asignaciones` ,
+  );
+
+  if (columnas.tiene_docente_id) {
+    await ejecutarArchivo('migracion_docentes_seccion.sql');
+    console.log('Migracion aplicada: varios docentes por seccion.');
+  } else if (!columnas.tiene_asignaciones) {
+    throw new Error('Falta la tabla seccion_docentes; revisa el esquema antes de continuar.');
+  }
+}
+
 try {
   const { rows: [{ total }] } = await pool.query(
     `SELECT COUNT(*) AS total
      FROM information_schema.tables
      WHERE table_schema = current_schema() AND table_name = ANY($1::text[])`,
-    [nombresTablas],
+    [tablasAcademicas],
   );
   const cantidadTablas = Number(total);
-  const instalada = cantidadTablas === nombresTablas.length;
+  const instalada = cantidadTablas === tablasAcademicas.length;
 
   if (cantidadTablas > 0 && !instalada && !forzar) {
     throw new Error('La base tiene un esquema parcial. Revisa los datos antes de reinstalar.');
@@ -80,6 +102,7 @@ try {
   }
 
   await migrarNumeroLista();
+  await migrarDocentesSeccion();
   await ejecutarArchivo('sesiones.sql');
   if (forzar) await pool.query('DELETE FROM sesiones');
 
