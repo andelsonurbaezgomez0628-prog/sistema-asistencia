@@ -52,7 +52,7 @@
                 <tr>
                   <td><strong><%= estudiante.apellido %>, <%= estudiante.nombre %></strong><div class="small text-secondary">Lista N° <%= estudiante.numero_lista %></div></td>
                   <td>
-                    <select class="form-select" name="estado_<%= estudiante.id %>" data-estado-asistencia required>
+                    <select class="form-select estado-asistencia" name="estado_<%= estudiante.id %>" data-estado-asistencia required>
                       <option value="">Seleccionar</option>
                       <% for (const estado of ['presente', 'tardanza', 'ausente', 'justificado']) { %>
                         <option value="<%= estado %>" <%= estudiante.estado === estado ? 'selected' : '' %>><%= estado %></option>

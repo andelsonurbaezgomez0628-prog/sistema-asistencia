@@ -2,6 +2,17 @@ const botonMarcarPresentes = document.querySelector('[data-marcar-todos-presente
 const estadosAsistencia = Array.from(document.querySelectorAll('[data-estado-asistencia]'));
 const avisoMarcarPresentes = document.querySelector('[data-aviso-marcar-presentes]');
 
+function actualizarColorEstado(select) {
+  for (const estado of ['presente', 'ausente', 'justificado', 'tardanza']) {
+    select.classList.toggle(`estado-${estado}`, select.value === estado);
+  }
+}
+
+for (const estado of estadosAsistencia) {
+  actualizarColorEstado(estado);
+  estado.addEventListener('change', () => actualizarColorEstado(estado));
+}
+
 if (botonMarcarPresentes) {
   botonMarcarPresentes.addEventListener('click', () => {
     for (const estado of estadosAsistencia) {

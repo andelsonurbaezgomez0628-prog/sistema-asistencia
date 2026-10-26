@@ -751,6 +751,10 @@ footer {
     font-size: .8rem;
     font-style: italic;
 }
+.estado-asistencia.estado-presente { background-color: #198754; border-color: #146c43; color: #fff; }
+.estado-asistencia.estado-ausente { background-color: #dc3545; border-color: #b02a37; color: #fff; }
+.estado-asistencia.estado-justificado { background-color: #ffc107; border-color: #cc9a06; color: #212529; }
+.estado-asistencia.estado-tardanza { background-color: #343a40; border-color: #23272b; color: #fff; }
 @media (max-width: 991.98px) {
     .reportes-graficos { grid-template-columns: minmax(0, 1fr); }
 }

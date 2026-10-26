@@ -92,10 +92,16 @@ test('asistencia ofrece marcar presentes a toda la lista', async () => {
     rutaActual: '/asistencia',
   });
   const script = await readFile(new URL('../assets/js/asistencia.js', import.meta.url), 'utf8');
+  const estilos = await readFile(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
   assert.match(html, /data-marcar-todos-presentes/);
   assert.match(html, /data-estado-asistencia/);
   assert.match(html, /data-aviso-marcar-presentes/);
   assert.match(script, /Se marcaron/);
+  assert.match(script, /estado-\$\{estado\}/);
+  assert.match(estilos, /\.estado-presente \{ background-color: #198754;/);
+  assert.match(estilos, /\.estado-ausente \{ background-color: #dc3545;/);
+  assert.match(estilos, /\.estado-justificado \{ background-color: #ffc107;/);
+  assert.match(estilos, /\.estado-tardanza \{ background-color: #343a40;/);
   assert.match(html, /src="\/js\/asistencia\.js"/);
 });
 
