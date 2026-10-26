@@ -11,7 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "check": "node --check src/alertas.js && node --check src/config.js && node --check src/server.js && node --check src/db.js && node --check src/security.js && node --check src/session-store.js && node --check src/routes/seguimiento.js && node --check src/routes/administracion.js && node --check src/sql.js && node --check tools/instalar.js && node --check assets/js/nav.js && node --check assets/js/gestion.js && node --check tests/alertas.test.js && node --check tests/config.test.js && node --check tests/security.test.js && node --check tests/sql.test.js && node --check tests/session-store.test.js && node --check tests/vistas.test.js && node --check tests/administracion.test.js",
+    "check": "node --check src/alertas.js && node --check src/config.js && node --check src/server.js && node --check src/db.js && node --check src/security.js && node --check src/session-store.js && node --check src/routes/seguimiento.js && node --check src/routes/administracion.js && node --check src/sql.js && node --check tools/instalar.js && node --check assets/js/nav.js && node --check assets/js/gestion.js && node --check assets/js/asistencia.js && node --check tests/alertas.test.js && node --check tests/config.test.js && node --check tests/security.test.js && node --check tests/sql.test.js && node --check tests/session-store.test.js && node --check tests/vistas.test.js && node --check tests/administracion.test.js",
     "db:setup": "node tools/instalar.js"
   },
   "dependencies": {

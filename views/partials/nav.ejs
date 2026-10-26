@@ -18,7 +18,13 @@
         <% if (usuario.rol === 'admin') { %><a class="nav-item-icon <%= rutaActual.startsWith('/gestion') ? 'active' : '' %>" href="/gestion" <%= rutaActual.startsWith('/gestion') ? 'aria-current="page"' : '' %>><img class="nav-icon" src="/icons/secciones.png" alt="" aria-hidden="true"><span>Gestion</span></a><% } %>
       </nav>
       <div class="navbar-account">
-        <span class="navbar-user" title="<%= usuario.nombre %>"><img class="nav-icon" src="/icons/profesor.png" alt="" aria-hidden="true"><span><%= usuario.nombre %></span></span>
+        <span class="navbar-user" title="<%= usuario.nombre %>">
+          <img class="nav-icon" src="/icons/profesor.png" alt="" aria-hidden="true">
+          <span class="navbar-user-details">
+            <span class="navbar-user-name"><%= usuario.nombre %></span>
+            <span class="navbar-user-role"><%= usuario.rol === 'admin' ? 'Administrador' : 'Docente' %></span>
+          </span>
+        </span>
         <form method="post" action="/logout">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button class="btn btn-outline-light btn-sm nav-logout" type="submit">Salir</button>

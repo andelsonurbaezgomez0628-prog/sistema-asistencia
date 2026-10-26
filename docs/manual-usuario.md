@@ -24,10 +24,12 @@ docente ve cantidades calculadas solo a partir de sus secciones asignadas.
 ## 3. Registrar asistencia
 
 1. Abre **Asistencia** y selecciona una seccion y fecha.
-2. Marca un estado para cada estudiante activo: `presente`, `tardanza`, `ausente` o
+2. Usa **Marcar todos presentes** si corresponde; luego corrige a mano las tardanzas, ausencias o
+   faltas justificadas. El boton no guarda la lista.
+3. Marca un estado para cada estudiante activo: `presente`, `tardanza`, `ausente` o
    `justificado`.
-3. Si hace falta, agrega una observacion breve.
-4. Pulsa **Guardar y recalcular alertas**.
+4. Si hace falta, agrega una observacion breve.
+5. Pulsa **Guardar y recalcular alertas**.
 
 Un docente solo puede registrar asistencia para las secciones que tiene asignadas. El servidor rechaza una lista
 incompleta, estados no permitidos o identificadores de estudiantes de otra seccion. Guardar el

@@ -78,3 +78,33 @@ test('editar seccion muestra varios docentes y marca los que ya estan asignados'
   assert.equal((html.match(/name="docente_ids"/g) || []).length, 2);
   assert.equal((html.match(/checked/g) || []).length, 2);
 });
+
+test('asistencia ofrece marcar presentes a toda la lista', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/asistencia.ejs', import.meta.url)), {
+    secciones: [{ id: 3, nombre: 'A', curso: 'Quinto' }],
+    estudiantes: [{ id: 9, nombre: 'Eva', apellido: 'Prueba', numero_lista: 1, estado: null, observacion: null }],
+    idSeccion: 3,
+    fecha: '2026-10-26',
+    hoy: '2026-10-26',
+    csrfToken: 'token-demo',
+    flash: null,
+    usuario: { id: 2, nombre: 'Docente', rol: 'docente' },
+    rutaActual: '/asistencia',
+  });
+  const script = await readFile(new URL('../assets/js/asistencia.js', import.meta.url), 'utf8');
+  assert.match(html, /data-marcar-todos-presentes/);
+  assert.match(html, /data-estado-asistencia/);
+  assert.match(html, /data-aviso-marcar-presentes/);
+  assert.match(script, /Se marcaron/);
+  assert.match(html, /src="\/js\/asistencia\.js"/);
+});
+
+test('la barra superior muestra el rol del usuario', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/partials/nav.ejs', import.meta.url)), {
+    usuario: { id: 2, nombre: 'Docente', rol: 'docente' },
+    rutaActual: '/asistencia',
+    csrfToken: 'token-demo',
+  });
+  assert.match(html, /navbar-user-role/);
+  assert.match(html, />Docente<\/span>/);
+});

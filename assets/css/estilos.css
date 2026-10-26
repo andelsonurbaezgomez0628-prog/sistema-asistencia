@@ -123,11 +123,22 @@ body {
     min-width: 0;
     max-width: 13rem;
     color: #fff;
+    align-items: center;
 }
-.navbar-user span {
+.navbar-user-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+}
+.navbar-user-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.navbar-user-role {
+    color: rgba(255,255,255,.72);
+    font-size: .72rem;
 }
 .nav-logout {
     min-width: 56px;

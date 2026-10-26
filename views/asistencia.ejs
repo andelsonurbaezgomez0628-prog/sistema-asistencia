@@ -39,6 +39,11 @@
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="hidden" name="seccion_id" value="<%= idSeccion %>">
         <input type="hidden" name="fecha" value="<%= fecha %>">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <p class="small text-secondary mb-0">Puedes marcar a todos presentes y luego corregir los casos necesarios.</p>
+          <button class="btn btn-outline-success" type="button" data-marcar-todos-presentes>Marcar todos presentes</button>
+          <span class="visually-hidden" aria-live="polite" data-aviso-marcar-presentes></span>
+        </div>
         <div class="table-responsive">
           <table class="table table-hover align-middle">
             <thead><tr><th>Estudiante</th><th>Estado</th><th>Observacion</th></tr></thead>
@@ -47,7 +52,7 @@
                 <tr>
                   <td><strong><%= estudiante.apellido %>, <%= estudiante.nombre %></strong><div class="small text-secondary">Lista N° <%= estudiante.numero_lista %></div></td>
                   <td>
-                    <select class="form-select" name="estado_<%= estudiante.id %>" required>
+                    <select class="form-select" name="estado_<%= estudiante.id %>" data-estado-asistencia required>
                       <option value="">Seleccionar</option>
                       <% for (const estado of ['presente', 'tardanza', 'ausente', 'justificado']) { %>
                         <option value="<%= estado %>" <%= estudiante.estado === estado ? 'selected' : '' %>><%= estado %></option>
@@ -64,5 +69,6 @@
       </form>
     <% } %>
   </main>
+  <script src="/js/asistencia.js" defer></script>
 </body>
 </html>
