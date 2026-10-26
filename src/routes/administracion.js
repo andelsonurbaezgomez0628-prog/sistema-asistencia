@@ -16,12 +16,17 @@ const anioEscolarValido = (valor) => {
   const partes = typeof valor === 'string' ? /^(\d{4})-(\d{4})$/.exec(valor) : null;
   return partes !== null && Number(partes[2]) === Number(partes[1]) + 1;
 };
+const ROLES_CUENTA = { docente: 'docente', administrador: 'admin' };
+const contarAdminsActivos = async () => {
+  const filas = await consulta("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'admin' AND activo IS TRUE");
+  return Number(filas[0].total);
+};
 
 router.use(requerirAdmin);
 
 router.get('/', async (req, res, next) => {
   try {
-    const [cursos, secciones, estudiantes, docentes] = await Promise.all([
+    const [cursos, secciones, estudiantes, docentes, administradores] = await Promise.all([
       consulta(
         `SELECT c.id, c.nombre, c.descripcion, COUNT(s.id) AS total_secciones
          FROM cursos c LEFT JOIN secciones s ON s.curso_id = c.id
@@ -44,8 +49,12 @@ router.get('/', async (req, res, next) => {
         `SELECT id, nombre, cedula, usuario, activo FROM usuarios
          WHERE rol = 'docente' ORDER BY nombre`,
       ),
+      consulta(
+        `SELECT id, nombre, cedula, usuario, activo FROM usuarios
+         WHERE rol = 'admin' ORDER BY nombre`,
+      ),
     ]);
-    return res.render('gestion', { cursos, secciones, estudiantes, docentes });
+    return res.render('gestion', { cursos, secciones, estudiantes, docentes, administradores });
   } catch (error) {
     return next(error);
   }
@@ -58,6 +67,7 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
     seccion: ['secciones', 'SELECT id, nombre, curso_id, docente_id, anio_escolar FROM secciones WHERE id = $1'],
     estudiante: ['estudiantes', 'SELECT id, numero_lista, nombre, apellido, fecha_nacimiento, seccion_id, activo FROM estudiantes WHERE id = $1'],
     docente: ['usuarios', "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'docente'"],
+    administrador: ['usuarios', "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'admin'"],
   };
   if (!id || !tablas[tipo]) return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
 
@@ -112,7 +122,8 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
           `UPDATE estudiantes SET numero_lista = $1, nombre = $2, apellido = $3, fecha_nacimiento = $4, seccion_id = $5, activo = $6 WHERE id = $7`,
         [numeroLista, nombre, apellido, nacimiento, seccionId, activo, id],
       );
-    } else if (tipo === 'docente') {
+    } else if (tipo === 'docente' || tipo === 'administrador') {
+      const rol = ROLES_CUENTA[tipo];
       const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
       const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
       const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
@@ -120,28 +131,41 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
       const activo = req.body.activo === '1';
       if (!textoValido(nombre, 120) || !cedulaValida(cedula) || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario)
           || (clave && clave.length < 4)) {
-        req.session.flash = 'Revisa los datos del docente; la clave nueva debe tener al menos 4 caracteres.';
-        return res.redirect(`/gestion/editar/docente/${id}`);
+        req.session.flash = `Revisa los datos del ${tipo}; la clave nueva debe tener al menos 4 caracteres.`;
+        return res.redirect(`/gestion/editar/${tipo}/${id}`);
       }
-      if (activo === 0) {
-        const asignadas = await consulta('SELECT COUNT(*) AS total FROM secciones WHERE docente_id = $1', [id]);
-        if (Number(asignadas[0].total) > 0) {
-          req.session.flash = 'Reasigna primero las secciones antes de desactivar el docente.';
-          return res.redirect(`/gestion/editar/docente/${id}`);
+      if (!activo) {
+        if (rol === 'admin') {
+          if (id === req.user.id) {
+            req.session.flash = 'No puedes desactivar tu propia cuenta de administrador.';
+            return res.redirect(`/gestion/editar/${tipo}/${id}`);
+          }
+          if (await contarAdminsActivos() <= 1) {
+            req.session.flash = 'Debe quedar al menos un administrador activo.';
+            return res.redirect(`/gestion/editar/${tipo}/${id}`);
+          }
+        } else {
+          const asignadas = await consulta('SELECT COUNT(*) AS total FROM secciones WHERE docente_id = $1', [id]);
+          if (Number(asignadas[0].total) > 0) {
+            req.session.flash = 'Reasigna primero las secciones antes de desactivar el docente.';
+            return res.redirect(`/gestion/editar/${tipo}/${id}`);
+          }
         }
       }
-      const [cuenta] = await consulta("SELECT id FROM usuarios WHERE id = $1 AND rol = 'docente'", [id]);
-      if (!cuenta) return res.status(404).render('error', { mensaje: 'El docente no existe.' });
+      const [cuenta] = await consulta('SELECT id FROM usuarios WHERE id = $1 AND rol = $2', [id, rol]);
+      if (!cuenta) return res.status(404).render('error', { mensaje: 'La cuenta no existe.' });
       if (clave) {
         const passwordHash = await bcrypt.hash(clave, 12);
         await consulta(
-          `UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3, password_hash = $4, activo = $5 WHERE id = $6 AND rol = 'docente'`,
-          [nombre, cedula, usuario, passwordHash, activo, id],
+          `UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3, password_hash = $4, activo = $5
+           WHERE id = $6 AND rol = $7`,
+          [nombre, cedula, usuario, passwordHash, activo, id, rol],
         );
       } else {
         await consulta(
-          `UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3, activo = $4 WHERE id = $5 AND rol = 'docente'`,
-          [nombre, cedula, usuario, activo, id],
+          `UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3, activo = $4
+           WHERE id = $5 AND rol = $6`,
+          [nombre, cedula, usuario, activo, id, rol],
         );
       }
     } else {
@@ -386,6 +410,57 @@ router.post('/docentes/:id/desactivar', protegerCsrf, async (req, res, next) => 
     }
     await consulta("UPDATE usuarios SET activo = FALSE WHERE id = $1 AND rol = 'docente'", [id]);
     req.session.flash = 'Docente desactivado; sus datos historicos se conservan.';
+    return res.redirect('/gestion');
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/administradores', protegerCsrf, async (req, res, next) => {
+  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
+  const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
+  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
+  const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
+  // El rol nunca se toma del formulario: esta ruta solo crea administradores.
+  if (!textoValido(nombre, 120) || !cedulaValida(cedula)
+      || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario) || clave.length < 4) {
+    req.session.flash = 'Revisa los datos; la contrasena debe tener al menos 4 caracteres.';
+    return res.redirect('/gestion');
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(clave, 12);
+    await consulta(
+      `INSERT INTO usuarios (nombre, cedula, usuario, password_hash, rol)
+       VALUES ($1, $2, $3, $4, 'admin')`,
+      [nombre, cedula, usuario, passwordHash],
+    );
+    req.session.flash = 'Administrador creado.';
+    return res.redirect('/gestion');
+  } catch (error) {
+    if (error.code === '23505') {
+      req.session.flash = 'La cedula o el usuario ya estan registrados.';
+      return res.redirect('/gestion');
+    }
+    return next(error);
+  }
+});
+
+router.post('/administradores/:id/desactivar', protegerCsrf, async (req, res, next) => {
+  const id = validarId(req.params.id);
+  if (!id) return res.status(400).render('error', { mensaje: 'El administrador indicado no es valido.' });
+  if (id === req.user.id) {
+    req.session.flash = 'No puedes desactivar tu propia cuenta de administrador.';
+    return res.redirect('/gestion');
+  }
+  try {
+    const activos = await contarAdminsActivos();
+    if (activos <= 1) {
+      req.session.flash = 'Debe quedar al menos un administrador activo.';
+      return res.redirect('/gestion');
+    }
+    await consulta("UPDATE usuarios SET activo = FALSE WHERE id = $1 AND rol = 'admin'", [id]);
+    req.session.flash = 'Administrador desactivado; sus datos historicos se conservan.';
     return res.redirect('/gestion');
   } catch (error) {
     return next(error);

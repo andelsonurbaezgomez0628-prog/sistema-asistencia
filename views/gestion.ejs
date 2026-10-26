@@ -29,6 +29,7 @@
         { clave: 'secciones', etiqueta: 'Secciones', total: secciones.length },
         { clave: 'estudiantes', etiqueta: 'Estudiantes', total: totalActivos(estudiantes) },
         { clave: 'docentes', etiqueta: 'Docentes', total: totalActivos(docentes) },
+        { clave: 'administradores', etiqueta: 'Administradores', total: totalActivos(administradores) },
       ];
     %>
 
@@ -362,6 +363,85 @@
                   <tr><td colspan="4" class="text-center text-secondary py-4">Todavia no hay docentes registrados.</td></tr>
                 <% } else { %>
                   <tr data-filtro-vacio hidden><td colspan="4" class="text-center text-secondary py-4">No se encontraron docentes con esa busqueda.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="gestion-panel" id="panel-administradores" role="tabpanel" aria-labelledby="tab-administradores" tabindex="0">
+        <article class="card">
+          <header class="card-header gestion-card-header">
+            <div>
+              <h2 class="h5 mb-0">Administradores</h2>
+              <p class="text-secondary small mb-0">Crea cuentas con acceso total al sistema. Solo un administrador puede gestionar esta seccion.</p>
+            </div>
+            <div class="gestion-buscador">
+              <label class="visually-hidden" for="buscar-administradores">Buscar administrador</label>
+              <input class="form-control form-control-sm" id="buscar-administradores" type="search" placeholder="Buscar por nombre, cedula o usuario" data-filtrar-tabla="tabla-administradores">
+            </div>
+          </header>
+
+          <div class="gestion-form">
+            <form class="row g-3 align-items-end" method="post" action="/gestion/administradores">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-sm-6">
+                <label class="form-label" for="admin-nombre">Nombre completo</label>
+                <input class="form-control" id="admin-nombre" name="nombre" maxlength="120" placeholder="Nombre del administrador" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="admin-cedula">Cedula</label>
+                <input class="form-control" id="admin-cedula" name="cedula" pattern="[0-9]{7,8}" maxlength="8" inputmode="numeric" placeholder="12345678" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="admin-usuario">Usuario</label>
+                <input class="form-control" id="admin-usuario" name="usuario" pattern="[a-zA-Z0-9._-]{3,50}" maxlength="50" autocomplete="off" placeholder="nombre.apellido" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="admin-clave">Clave inicial (minimo 4 caracteres)</label>
+                <input class="form-control" id="admin-clave" name="clave" type="password" minlength="4" autocomplete="new-password" placeholder="Clave segura" required>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-primary" type="submit">Crear administrador</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tabla-administradores">
+              <thead>
+                <tr><th>Administrador</th><th>Usuario</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+              </thead>
+              <tbody>
+                <% for (const administrador of administradores) { %>
+                  <tr>
+                    <td>
+                      <strong><%= administrador.nombre %></strong>
+                      <% if (Number(administrador.id) === Number(usuario.id)) { %><span class="badge text-bg-primary ms-1">Tu cuenta</span><% } %>
+                      <div class="small text-secondary">C.I. <%= administrador.cedula %></div>
+                    </td>
+                    <td><%= administrador.usuario %></td>
+                    <td>
+                      <span class="badge <%= administrador.activo ? 'text-bg-success' : 'text-bg-secondary' %>"><%= administrador.activo ? 'Activo' : 'Inactivo' %></span>
+                    </td>
+                    <td class="text-end">
+                      <div class="gestion-acciones">
+                        <a class="btn btn-outline-primary btn-sm" href="/gestion/editar/administrador/<%= administrador.id %>">Editar</a>
+                        <% if (administrador.activo && Number(administrador.id) !== Number(usuario.id) && totalActivos(administradores) > 1) { %>
+                          <form method="post" action="/gestion/administradores/<%= administrador.id %>/desactivar" data-confirmar="Desactivar a <%= administrador.nombre %>? Sus datos historicos se conservaran.">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Desactivar</button>
+                          </form>
+                        <% } %>
+                      </div>
+                    </td>
+                  </tr>
+                <% } %>
+                <% if (administradores.length === 0) { %>
+                  <tr><td colspan="4" class="text-center text-secondary py-4">Todavia no hay administradores registrados.</td></tr>
+                <% } else { %>
+                  <tr data-filtro-vacio hidden><td colspan="4" class="text-center text-secondary py-4">No se encontraron administradores con esa busqueda.</td></tr>
                 <% } %>
               </tbody>
             </table>

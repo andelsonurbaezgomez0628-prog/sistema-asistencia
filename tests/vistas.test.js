@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import ejs from 'ejs';
 
 const vistas = [
@@ -39,4 +40,21 @@ test('reportes incluye barra de porcentaje y graficos de pastel y barras', async
   assert.match(plantilla, /class="grafico-dona"/);
   assert.match(plantilla, /class="grafico-barras"/);
   assert.doesNotMatch(plantilla, /style="/);
+});
+
+test('gestion renderiza la pestana para crear administradores', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/gestion.ejs', import.meta.url)), {
+    cursos: [],
+    secciones: [],
+    estudiantes: [],
+    docentes: [],
+    administradores: [{ id: 1, nombre: 'Ana', cedula: '40101010', usuario: 'admin', activo: true }],
+    csrfToken: 'token-demo',
+    flash: null,
+    usuario: { id: 1, nombre: 'Ana', rol: 'admin' },
+    rutaActual: '/gestion',
+  });
+  assert.match(html, /id="panel-administradores"/);
+  assert.match(html, /action="\/gestion\/administradores"/);
+  assert.match(html, /Crear administrador/);
 });

@@ -330,3 +330,19 @@ crear o actualizar cuentas de docentes. El limite se valida en el servidor y en 
 - **Seguridad:** bcrypt, CSRF, rate limit y revalidacion de cuenta se mantienen. Un minimo de 4
   es debil; antes de usar datos reales se recomienda volver a 12 o exigir una clave mas larga.
 - **Verificacion:** `npm test` y `npm run check` despues del cambio.
+
+## 2026-10-25 - Alta de administradores desde Gestion
+
+**Decision:** agregar la pestana **Administradores** en Gestion para crear, editar y desactivar
+cuentas con rol `admin`. El rol se fija en el servidor (`'admin'` en el INSERT); nunca se lee del
+formulario. La ruta sigue protegida por `requerirAdmin`, CSRF, validacion de cedula, usuario y
+clave con bcrypt.
+
+- **Reglas:** un administrador no puede desactivar su propia cuenta ni dejar el sistema sin al
+  menos un administrador activo. Las cuentas se desactivan, no se borran, para conservar el
+  historial de alertas atendidas.
+- **Correccion:** la edicion de docentes comparaba `activo === 0` con un booleano, por lo que
+  nunca impedia desactivar un docente con secciones asignadas; ahora usa `!activo` y aplica la
+  misma validacion que el boton Desactivar.
+- **Verificacion:** `npm test` (48 pruebas, incluida la renderizacion de la nueva pestana) y
+  `npm run check`.

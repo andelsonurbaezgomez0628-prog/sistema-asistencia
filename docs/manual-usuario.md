@@ -57,9 +57,11 @@ porcentaje de asistencia. Tardanza cuenta como asistencia; justificado no.
 ## 6. Gestion (solo coordinacion)
 
 En **Gestion** se crean cursos y secciones, se registran estudiantes y docentes, y se desactivan
-cuentas o estudiantes sin borrar el historial. No se permite eliminar cursos con secciones ni
-secciones con estudiantes. Las cuentas de docentes se crean con una contrasena de al menos 4
-caracteres.
+cuentas o estudiantes sin borrar el historial. La pestana **Administradores** permite crear otras
+cuentas de coordinacion con el rol fijado en el servidor; no se puede desactivar la propia cuenta
+ni dejar el sistema sin al menos un administrador activo. No se permite eliminar cursos con
+secciones ni secciones con estudiantes. Las cuentas de docentes y administradores se crean con una
+contrasena de al menos 4 caracteres.
 
 ## 7. Reportar un problema
 
