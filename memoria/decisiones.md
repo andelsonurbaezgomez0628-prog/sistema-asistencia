@@ -346,3 +346,13 @@ clave con bcrypt.
   misma validacion que el boton Desactivar.
 - **Verificacion:** `npm test` (48 pruebas, incluida la renderizacion de la nueva pestana) y
   `npm run check`.
+
+## 2026-10-26 - Correccion al crear secciones
+
+**Decision:** corregir la validacion de curso y docente al crear o editar una seccion. El codigo
+destructuraba solo el primer resultado de `Promise.all` en `relaciones`, por lo que
+`relaciones[1]` era una fila de curso y no el arreglo de docentes; con un curso existente se
+producia un error 500. Ahora se usan `cursosEncontrados` y `docentesEncontrados` por separado.
+
+- **Verificacion:** `npm test` (49 pruebas, con una regresion que vigila la destructuracion) y
+  `npm run check`. Se creo y elimino una seccion de prueba contra la base real sin dejar datos.

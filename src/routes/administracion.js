@@ -245,11 +245,11 @@ router.post('/secciones', protegerCsrf, async (req, res, next) => {
   }
 
   try {
-    const [relaciones] = await Promise.all([
+    const [cursosEncontrados, docentesEncontrados] = await Promise.all([
       consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]),
       consulta("SELECT id FROM usuarios WHERE id = $1 AND rol = 'docente' AND activo IS TRUE", [docenteId]),
     ]);
-    if (relaciones[0].length === 0 || relaciones[1].length === 0) {
+    if (cursosEncontrados.length === 0 || docentesEncontrados.length === 0) {
       req.session.flash = 'El curso o docente seleccionado no esta activo.';
       return res.redirect('/gestion');
     }
