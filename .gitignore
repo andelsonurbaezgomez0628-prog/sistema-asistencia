@@ -4,6 +4,10 @@
 
 # Paquetes y herramientas locales
 node_modules/
+android/.gradle/
+android/local.properties
+android/**/build/
+android/.idea/
 
 # Archivos del sistema operativo y del editor
 .DS_Store

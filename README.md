@@ -29,6 +29,7 @@ La regla pura esta en [src/alertas.js](src/alertas.js). Las consultas de seguimi
 - PostgreSQL en Neon, con `pg` y consultas parametrizadas.
 - Configuracion general en `src/config.js`; secretos exclusivamente en `.env`.
 - Bootstrap 5 y CSS del proyecto.
+- Aplicacion Android con Capacitor que abre el sistema web desplegado.
 
 Node escucha siempre en `0.0.0.0:$PORT` (por defecto `3000`) para que el proxy de Render pueda
 alcanzarla; la variable `HOST` se ignora a proposito. El runtime PHP anterior se retiro del
@@ -81,6 +82,24 @@ La base ya inicializada se comparte con Neon, por lo que no hace falta ejecutar 
 en cada despliegue. Si la base estuviera vacia, ejecutarlo una sola vez desde la Shell del
 servicio en Render. `NODE_ENV=production` activa cookies `Secure`, por lo que el sitio debe abrirse
 por HTTPS (Render lo entrega automaticamente).
+
+## Aplicacion Android
+
+La app Capacitor reutiliza el sitio Express publicado por Render; requiere internet y no funciona
+como copia local sin conexion. Configura `CAPACITOR_SERVER_URL` en `.env` con la URL HTTPS publica
+real del servicio antes de generar el APK. El valor de ejemplo en `.env.example` corresponde al
+nombre del servicio de `render.yaml`; si Render asigno otro dominio, reemplazalo.
+
+Con Android Studio, Java y el Android SDK instalados, ejecuta:
+
+```powershell
+npm ci
+npm run mobile:sync
+npm run mobile:open
+```
+
+En Android Studio, selecciona un emulador o dispositivo y ejecuta la app. El identificador Android
+es `com.sistema.asistencia`; no lo cambies despues de distribuir la aplicacion.
 
 ## Cero confianza
 
