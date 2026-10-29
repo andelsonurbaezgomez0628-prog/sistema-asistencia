@@ -35,7 +35,7 @@
     <div class="row g-3">
       <% for (const alerta of alertas) { %>
         <div class="col-lg-6"><article class="border rounded p-3 h-100">
-          <div class="d-flex justify-content-between"><h2 class="h6"><%= alerta.apellido %>, <%= alerta.nombre %></h2><span class="badge text-bg-<%= alerta.nivel === 'alto' ? 'danger' : alerta.nivel === 'medio' ? 'warning' : 'secondary' %>"><%= alerta.nivel.toUpperCase() %></span></div>
+          <div class="d-flex justify-content-between"><h2 class="h6"><%= alerta.apellido %>, <%= alerta.nombre %></h2><span class="badge nivel-<%= alerta.nivel %>"><%= alerta.nivel.toUpperCase() %></span></div>
           <p class="small text-secondary"><%= alerta.curso %> · <%= alerta.seccion %> · Lista N° <%= alerta.numero_lista %> · <%= alerta.fecha_deteccion %></p>
           <p><%= alerta.mensaje %></p>
           <p class="small">Ausencias: <%= alerta.faltas_30_dias %> · Racha: <%= alerta.racha_maxima %> dias</p>

@@ -365,7 +365,7 @@ p.text-muted, .text-muted { color: var(--app-muted) !important; }
 .alerta-medio { border-left: 5px solid #e6a817; }
 .alerta-alto { border-left: 5px solid #dc3545; }
 .nivel-bajo { background-color: #198754; color: #fff; }
-.nivel-medio { background-color: #a86b00; color: #fff; }
+.nivel-medio { background-color: #ffc107; color: #212529; }
 .nivel-alto { background-color: #dc3545; color: #fff; }
 footer {
     color: #8792a5 !important;
