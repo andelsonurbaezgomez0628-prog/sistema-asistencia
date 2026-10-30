@@ -32,21 +32,53 @@
       <div class="col-sm-4 d-flex align-items-end"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
     </form>
     <% if (alertas.length === 0) { %><div class="alert alert-success">No hay alertas con esos filtros.</div><% } %>
-    <div class="row g-3">
+    <div class="row g-3 alertas-lista">
       <% for (const alerta of alertas) { %>
-        <div class="col-lg-6"><article class="border rounded p-3 h-100">
-          <div class="d-flex justify-content-between"><h2 class="h6"><%= alerta.apellido %>, <%= alerta.nombre %></h2><span class="badge nivel-<%= alerta.nivel %>"><%= alerta.nivel.toUpperCase() %></span></div>
-          <p class="small text-secondary"><%= alerta.curso %> · <%= alerta.seccion %> · Lista N° <%= alerta.numero_lista %> · <%= alerta.fecha_deteccion %></p>
-          <p><%= alerta.mensaje %></p>
-          <p class="small">Ausencias: <%= alerta.faltas_30_dias %> · Racha: <%= alerta.racha_maxima %> dias</p>
-          <% if (alerta.estado === 'pendiente') { %>
-            <form class="d-flex gap-2" method="post" action="/alertas/<%= alerta.id %>/atender">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <input class="form-control" name="nota" maxlength="200" placeholder="Accion tomada" required>
-              <button class="btn btn-success" type="submit">Atender</button>
-            </form>
-          <% } else { %><span class="badge text-bg-secondary">Atendida</span><% } %>
-        </article></div>
+        <div class="col-lg-6">
+          <article class="alerta-card alerta-<%= alerta.nivel %> h-100">
+            <header class="alerta-card-header">
+              <div class="alerta-card-identidad">
+                <h2 class="alerta-estudiante"><%= alerta.nombre %> <%= alerta.apellido %></h2>
+                <p class="alerta-metadatos">
+                  <span><%= alerta.curso %> · Sección <%= alerta.seccion %></span>
+                  <span>Lista N° <%= alerta.numero_lista %></span>
+                  <span>Detectada <%= alerta.fecha_deteccion %></span>
+                </p>
+              </div>
+              <span class="badge nivel-<%= alerta.nivel %> alerta-nivel"><%= alerta.nivel.toUpperCase() %></span>
+            </header>
+
+            <section class="alerta-motivo" aria-label="Motivo de alerta">
+              <h3 class="alerta-seccion-titulo">Motivo de alerta</h3>
+              <p class="alerta-descripcion"><%= alerta.mensaje %></p>
+              <p class="alerta-recomendacion"><strong>Recomendación:</strong> Conversar con el estudiante y coordinar seguimiento con su familia.</p>
+            </section>
+
+            <div class="alerta-estadisticas" aria-label="Estadisticas de asistencia">
+              <div class="alerta-estadistica">
+                <span class="alerta-estadistica-valor"><%= alerta.faltas_30_dias %></span>
+                <span class="alerta-estadistica-etiqueta">Ausencias</span>
+              </div>
+              <div class="alerta-estadistica">
+                <span class="alerta-estadistica-valor"><%= alerta.racha_maxima %></span>
+                <span class="alerta-estadistica-etiqueta">Racha máxima <small>días</small></span>
+              </div>
+            </div>
+
+            <footer class="alerta-card-footer">
+              <% if (alerta.estado === 'pendiente') { %>
+                <span class="alerta-estado estado-pendiente"><span aria-hidden="true">◷</span> Pendiente</span>
+                <form class="alerta-formulario" method="post" action="/alertas/<%= alerta.id %>/atender">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input class="form-control" name="nota" maxlength="200" placeholder="Accion tomada" aria-label="Accion tomada" required>
+                  <button class="btn btn-success" type="submit">Atender</button>
+                </form>
+              <% } else { %>
+                <span class="alerta-estado estado-atendida"><span aria-hidden="true">✓</span> Atendida</span>
+              <% } %>
+            </footer>
+          </article>
+        </div>
       <% } %>
     </div>
   </main>
