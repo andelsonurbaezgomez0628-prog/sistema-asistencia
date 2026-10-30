@@ -96,12 +96,16 @@ test('asistencia ofrece marcar presentes a toda la lista', async () => {
   assert.match(html, /data-marcar-todos-presentes/);
   assert.match(html, /data-estado-asistencia/);
   assert.match(html, /data-aviso-marcar-presentes/);
+  assert.match(html, /data-conteo-estado="presente"/);
+  assert.match(html, /Lista N°/);
   assert.match(script, /Se marcaron/);
   assert.match(script, /estado-\$\{estado\}/);
-  assert.match(estilos, /\.estado-presente \{ background-color: #198754;/);
-  assert.match(estilos, /\.estado-ausente \{ background-color: #dc3545;/);
-  assert.match(estilos, /\.estado-justificado \{ background-color: #ffc107;/);
-  assert.match(estilos, /\.estado-tardanza \{ background-color: #343a40;/);
+  assert.match(script, /function actualizarContadores\(\)/);
+  assert.match(script, /actualizarContadores\(\);/);
+  assert.match(estilos, /\.estado-selector\.estado-presente \{ border-color: #A7F3D0; background: var\(--asist-verde-claro\);/);
+  assert.match(estilos, /\.estado-selector\.estado-ausente \{ border-color: #FECACA; background: var\(--asist-rojo-claro\);/);
+  assert.match(estilos, /\.estado-selector\.estado-justificado \{ border-color: #BFDBFE; background: var\(--asist-azul-claro\);/);
+  assert.match(estilos, /\.estado-selector\.estado-tardanza \{ border-color: #FDE68A; background: var\(--asist-naranja-claro\);/);
   assert.match(html, /src="\/js\/asistencia\.js"/);
 });
 

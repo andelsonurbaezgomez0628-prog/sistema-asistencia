@@ -7,28 +7,36 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="/css/estilos.css" rel="stylesheet">
 </head>
-<body>
+<body class="asistencia-page">
   <%- include('partials/nav') %>
   <main class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h3 mb-0">Registrar asistencia</h1>
-      <a class="btn btn-outline-secondary btn-sm" href="/">Panel</a>
+    <div class="asistencia-encabezado">
+      <div class="asistencia-titulo-grupo">
+        <span class="asistencia-titulo-icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M8 3.75h8A2.25 2.25 0 0 1 18.25 6v14.25H5.75V6A2.25 2.25 0 0 1 8 3.75Z"/><path d="M9 3.75V2.5h6v1.25M8.5 10h7M8.5 13.5h7M8.5 17h4"/></svg>
+        </span>
+        <div>
+          <h1 class="h3 mb-1">Registrar asistencia</h1>
+          <p class="asistencia-subtitulo mb-0">Gestiona y registra la asistencia diaria de los estudiantes</p>
+        </div>
+      </div>
+      <a class="btn asistencia-boton-panel" href="/">Panel</a>
     </div>
     <% if (flash) { %><div class="alert alert-info"><%= flash %></div><% } %>
-    <form class="row g-2 align-items-end mb-3" method="get" action="/asistencia">
-      <div class="col-md-6">
-        <label class="form-label" for="seccion">Curso y seccion</label>
+    <form class="asistencia-controles" method="get" action="/asistencia">
+      <div class="asistencia-control asistencia-control-seccion">
+        <label class="form-label" for="seccion">Curso y sección</label>
         <select class="form-select" id="seccion" name="seccion" required>
           <% for (const seccion of secciones) { %>
             <option value="<%= seccion.id %>" <%= Number(seccion.id) === idSeccion ? 'selected' : '' %>><%= seccion.curso %> · <%= seccion.nombre %></option>
           <% } %>
         </select>
       </div>
-      <div class="col-md-4">
+      <div class="asistencia-control asistencia-control-fecha">
         <label class="form-label" for="fecha">Fecha</label>
         <input class="form-control" type="date" id="fecha" name="fecha" value="<%= fecha %>" max="<%= hoy %>" required>
       </div>
-      <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Cargar lista</button></div>
+      <button class="btn btn-primary asistencia-boton-cargar" type="submit">Cargar lista</button>
     </form>
     <% if (secciones.length === 0) { %>
       <div class="alert alert-warning">No tienes secciones asignadas.</div>
@@ -39,33 +47,61 @@
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="hidden" name="seccion_id" value="<%= idSeccion %>">
         <input type="hidden" name="fecha" value="<%= fecha %>">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-          <p class="small text-secondary mb-0">Puedes marcar a todos presentes y luego corregir los casos necesarios.</p>
-          <button class="btn btn-outline-success" type="button" data-marcar-todos-presentes>Marcar todos presentes</button>
+        <div class="asistencia-acciones">
+          <p class="asistencia-ayuda mb-0">Puedes marcar a todos presentes y luego corregir los casos necesarios.</p>
+          <button class="btn asistencia-boton-masivo" type="button" data-marcar-todos-presentes>
+            <span aria-hidden="true">✓</span> Marcar todos presentes
+          </button>
           <span class="visually-hidden" aria-live="polite" data-aviso-marcar-presentes></span>
         </div>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead><tr><th>Estudiante</th><th>Estado</th><th>Observacion</th></tr></thead>
+        <div class="asistencia-contadores" aria-label="Resumen de asistencia">
+          <article class="asistencia-contador contador-presente">
+            <span class="contador-icono" aria-hidden="true">✓</span>
+            <div><span class="contador-valor" data-conteo-estado="presente"><%= estudiantes.filter((estudiante) => estudiante.estado === 'presente').length %></span><span class="contador-etiqueta">Presentes</span></div>
+          </article>
+          <article class="asistencia-contador contador-tardanza">
+            <span class="contador-icono" aria-hidden="true">◷</span>
+            <div><span class="contador-valor" data-conteo-estado="tardanza"><%= estudiantes.filter((estudiante) => estudiante.estado === 'tardanza').length %></span><span class="contador-etiqueta">Tardanzas</span></div>
+          </article>
+          <article class="asistencia-contador contador-ausente">
+            <span class="contador-icono" aria-hidden="true">!</span>
+            <div><span class="contador-valor" data-conteo-estado="ausente"><%= estudiantes.filter((estudiante) => estudiante.estado === 'ausente').length %></span><span class="contador-etiqueta">Ausentes</span></div>
+          </article>
+          <article class="asistencia-contador contador-justificado">
+            <span class="contador-icono" aria-hidden="true">i</span>
+            <div><span class="contador-valor" data-conteo-estado="justificado"><%= estudiantes.filter((estudiante) => estudiante.estado === 'justificado').length %></span><span class="contador-etiqueta">Justificados</span></div>
+          </article>
+        </div>
+        <div class="table-responsive asistencia-tabla-contenedor">
+          <table class="table table-hover align-middle asistencia-tabla">
+            <thead><tr><th>Estudiante</th><th>Estado</th><th>Observación</th></tr></thead>
             <tbody>
               <% for (const estudiante of estudiantes) { %>
                 <tr>
-                  <td><strong><%= estudiante.apellido %>, <%= estudiante.nombre %></strong><div class="small text-secondary">Lista N° <%= estudiante.numero_lista %></div></td>
                   <td>
-                    <select class="form-select estado-asistencia" name="estado_<%= estudiante.id %>" data-estado-asistencia required>
+                    <div class="asistencia-estudiante">
+                      <span class="estudiante-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="8" r="3.25"/><path d="M5.75 20v-1.5a6.25 6.25 0 0 1 12.5 0V20"/></svg></span>
+                      <div><strong><%= estudiante.apellido %>, <%= estudiante.nombre %></strong><span class="estudiante-lista">Lista N° <%= estudiante.numero_lista %></span></div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="estado-selector">
+                      <span class="estado-icono" data-icono-estado aria-hidden="true"></span>
+                      <select class="form-select estado-asistencia" name="estado_<%= estudiante.id %>" data-estado-asistencia required>
                       <option value="">Seleccionar</option>
                       <% for (const estado of ['presente', 'tardanza', 'ausente', 'justificado']) { %>
-                        <option value="<%= estado %>" <%= estudiante.estado === estado ? 'selected' : '' %>><%= estado %></option>
+                        <option value="<%= estado %>" <%= estudiante.estado === estado ? 'selected' : '' %>><%= estado.charAt(0).toUpperCase() + estado.slice(1) %></option>
                       <% } %>
-                    </select>
+                      </select>
+                    </div>
                   </td>
-                  <td><input class="form-control" name="observacion_<%= estudiante.id %>" maxlength="255" value="<%= estudiante.observacion || '' %>"></td>
+                  <td><input class="form-control asistencia-observacion" name="observacion_<%= estudiante.id %>" maxlength="255" value="<%= estudiante.observacion || '' %>" aria-label="Observación de <%= estudiante.nombre %> <%= estudiante.apellido %>"></td>
                 </tr>
               <% } %>
             </tbody>
           </table>
         </div>
-        <button class="btn btn-success" type="submit">Guardar y recalcular alertas</button>
+        <div class="asistencia-guardar"><button class="btn btn-success asistencia-boton-guardar" type="submit">Guardar y recalcular alertas</button></div>
       </form>
     <% } %>
   </main>
