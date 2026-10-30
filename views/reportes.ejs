@@ -113,29 +113,39 @@
         </div>
         <span class="reportes-total-estudiantes"><%= filas.length %> estudiantes</span>
       </header>
-      <div class="table-responsive"><table class="table table-hover align-middle mb-0">
-      <thead><tr><th>Estudiante</th><th>Curso / sección</th><th>Asistencias</th><th>Tardanzas</th><th>Ausencias</th><th>Justificadas</th><th class="col-porcentaje">% asistencia</th></tr></thead>
-      <tbody><% for (const fila of filas) { const diasRegistradosFila = Number(fila.dias_registrados || 0); const porcentaje = diasRegistradosFila > 0 ? Math.round((Number(fila.asistencias || 0) / diasRegistradosFila) * 100) : 0; %>
-        <tr>
-          <td><%= fila.apellido %>, <%= fila.nombre %><div class="small text-secondary">Lista N° <%= fila.numero_lista %></div></td>
-          <td><%= fila.curso %> · <%= fila.seccion %></td>
-          <td><%= fila.asistencias || 0 %></td>
-          <td><%= fila.tardanzas || 0 %></td>
-          <td><%= fila.ausencias || 0 %></td>
-          <td><%= fila.justificadas || 0 %></td>
-          <td class="col-porcentaje">
-            <% if (diasRegistradosFila > 0) { %>
-              <div class="porcentaje-asistencia">
-                <span class="porcentaje-asistencia-valor"><%= porcentaje %>%</span>
-                <progress class="barra-asistencia" max="100" value="<%= porcentaje %>" aria-label="Asistencia de <%= fila.nombre %> <%= fila.apellido %>: <%= porcentaje %>%"><%= porcentaje %>%</progress>
+      <div class="reportes-estudiantes-grid">
+        <% for (const fila of filas) { const diasRegistradosFila = Number(fila.dias_registrados || 0); const porcentaje = diasRegistradosFila > 0 ? Math.round((Number(fila.asistencias || 0) / diasRegistradosFila) * 100) : 0; %>
+          <article class="reportes-estudiante-card">
+            <header class="reportes-estudiante-encabezado">
+              <div class="reportes-estudiante-identidad">
+                <span class="reportes-estudiante-icono" aria-hidden="true"><img src="/icons/profesor.png" alt=""></span>
+                <div>
+                  <h3><%= fila.apellido %>, <%= fila.nombre %></h3>
+                  <p>Lista N° <%= fila.numero_lista %> <span aria-hidden="true">·</span> <%= fila.curso %> · <%= fila.seccion %></p>
+                </div>
               </div>
-            <% } else { %>
-              <span class="porcentaje-sin-datos">Sin registros</span>
-            <% } %>
-          </td>
-        </tr>
-      <% } %></tbody>
-      </table></div>
+              <span class="reportes-estudiante-porcentaje"><%= diasRegistradosFila > 0 ? `${porcentaje}%` : '--' %></span>
+            </header>
+
+            <dl class="reportes-estudiante-metricas">
+              <div class="estudiante-metrica metrica-asistencias"><dt>Asistencias</dt><dd><%= fila.asistencias || 0 %></dd></div>
+              <div class="estudiante-metrica metrica-tardanzas"><dt>Tardanzas</dt><dd><%= fila.tardanzas || 0 %></dd></div>
+              <div class="estudiante-metrica metrica-ausencias"><dt>Ausencias</dt><dd><%= fila.ausencias || 0 %></dd></div>
+              <div class="estudiante-metrica metrica-justificadas"><dt>Justificadas</dt><dd><%= fila.justificadas || 0 %></dd></div>
+            </dl>
+
+            <div class="reportes-estudiante-progreso">
+              <div class="reportes-estudiante-progreso-encabezado">
+                <span>Porcentaje de asistencia</span>
+                <% if (diasRegistradosFila > 0) { %><strong><%= porcentaje %>%</strong><% } else { %><span class="porcentaje-sin-datos">Sin registros</span><% } %>
+              </div>
+              <% if (diasRegistradosFila > 0) { %>
+                <progress class="barra-asistencia" max="100" value="<%= porcentaje %>" aria-label="Asistencia de <%= fila.nombre %> <%= fila.apellido %>: <%= porcentaje %>%"><%= porcentaje %>%</progress>
+              <% } %>
+            </div>
+          </article>
+        <% } %>
+      </div>
       <% if (filas.length === 0) { %><p class="text-secondary reportes-sin-resultados">No hay registros para esos filtros.</p><% } %>
     </section>
   </main>
