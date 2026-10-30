@@ -1,15 +1,15 @@
 /* Asistencia Escolar Inteligente — tema visual profesional */
 :root {
-    --app-navy: #14213d;
-    --app-navy-light: #1d3157;
-    --app-blue: #3267e3;
-    --app-blue-soft: #eaf0ff;
-    --app-bg: #f4f7fb;
-    --app-text: #1e293b;
+    --app-navy: #172554;
+    --app-navy-light: #1e3a8a;
+    --app-blue: #2563eb;
+    --app-blue-soft: #eff6ff;
+    --app-bg: #f1f5f9;
+    --app-text: #172554;
     --app-muted: #64748b;
-    --app-border: #e5eaf2;
-    --app-radius: 16px;
-    --app-shadow: 0 8px 24px rgba(20, 33, 61, .055);
+    --app-border: #e2e8f0;
+    --app-radius: 14px;
+    --app-shadow: 0 8px 24px rgba(23, 37, 84, .055);
 }
 html { min-height: 100%; }
 body {
@@ -811,10 +811,10 @@ footer {
     height: 12px;
     border-radius: 4px;
 }
-.grafico-color-presentes { background: #198754; }
-.grafico-color-tardanzas { background: #e6a817; }
-.grafico-color-ausencias { background: #dc3545; }
-.grafico-color-justificadas { background: #3267e3; }
+.grafico-color-presentes { background: #10B981; }
+.grafico-color-tardanzas { background: #F59E0B; }
+.grafico-color-ausencias { background: #EF4444; }
+.grafico-color-justificadas { background: #2563EB; }
 .grafico-leyenda-nombre {
     flex: 1 1 auto;
     color: #34445e;
@@ -1143,6 +1143,184 @@ footer {
     }
     .grafico-dona-cuerpo { gap: .75rem; }
     .col-porcentaje { width: 120px; min-width: 120px; }
+}
+/* Elementos compartidos de los encabezados de cada modulo */
+.dashboard-subtitle { color: var(--app-muted); font-size: .9rem; }
+.dashboard-page-icon {
+    display: grid;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--app-blue);
+}
+.dashboard-page-icon .page-icon { width: 23px; height: 23px; filter: brightness(0) invert(1); }
+.dashboard-page .dashboard-metric {
+    position: relative;
+    min-height: 128px;
+    padding: 1.1rem;
+    border-top: 0;
+    border-radius: 14px;
+    transition: transform .16s ease, box-shadow .16s ease;
+}
+.dashboard-page .dashboard-metric:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(20, 33, 61, .09); }
+.dashboard-metric-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.dashboard-page .dashboard-metric h2 { margin: 0; color: #64748b; font-size: .8rem; font-weight: 650; }
+.dashboard-metric-icon {
+    display: grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 11px;
+    background: #eff6ff;
+}
+.dashboard-metric-icon img { width: 23px; height: 23px; object-fit: contain; }
+.dashboard-page .dashboard-metric p { margin-top: .7rem; color: #172554; font-size: 2rem; font-variant-numeric: tabular-nums; }
+.dashboard-page .dashboard-metric.metric-alerts { border: 1px solid #fee2e2; background: #fff; }
+.dashboard-page .dashboard-metric.metric-alerts .dashboard-metric-icon { background: #fef2f2; }
+.dashboard-page .dashboard-metric.metric-alerts p { color: #dc2626; }
+.dashboard-page .dashboard-actions { gap: .75rem; margin-top: 1.4rem; }
+.dashboard-page .dashboard-actions .btn { min-height: 48px; border-radius: 10px; }
+.dashboard-page .dashboard-actions img { width: 21px; height: 21px; }
+
+/* Reportes */
+.reportes-encabezado,
+.cuenta-encabezado,
+.edicion-encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+.reportes-boton-panel,
+.cuenta-boton-panel,
+.edicion-boton-volver {
+    flex: 0 0 auto;
+    border: 1px solid #c9d6f5;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--app-blue);
+    font-weight: 650;
+}
+.reportes-boton-panel:hover,
+.cuenta-boton-panel:hover,
+.edicion-boton-volver:hover { border-color: #b7c9f5; background: var(--app-blue-soft); color: #214db6; }
+.reportes-filtros-panel {
+    margin-bottom: 1rem;
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(20, 33, 61, .045);
+}
+.reportes-filtros-panel .form-label { margin-bottom: .35rem; font-size: .8rem; }
+.reportes-filtros-panel .btn { min-height: 42px; }
+.reportes-contexto {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    padding: .45rem .75rem;
+    border: 1px solid #e4eaf3;
+    border-radius: 8px;
+    background: #f8faff;
+    color: #64748b !important;
+}
+.reportes-contexto strong { color: #1e3357; }
+.reportes-page .grafico-card { border-radius: 14px; }
+.reportes-page .grafico-card .card-header { padding: 1rem 1.2rem; }
+.reportes-page .grafico-card .card-header h2 { color: #1e3357; font-size: .98rem; font-weight: 720; }
+.reportes-page .grafico-card .card-body { padding: 1.2rem; }
+.reportes-page .grafico-dona-base { stroke: #e2e8f0; }
+.reportes-detalle-card { margin-top: .4rem; }
+.reportes-detalle-encabezado { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.reportes-detalle-encabezado h2 { color: #1e3357; font-weight: 720; }
+.reportes-total-estudiantes { padding: .35rem .65rem; border-radius: 999px; background: #eff6ff; color: #3267e3; font-size: .75rem; font-weight: 700; }
+.reportes-detalle-card .table-responsive { border-radius: 0 0 14px 14px; }
+.reportes-sin-resultados { margin: 0; padding: 1.5rem; text-align: center; }
+
+/* Gestion academica */
+.gestion-page .gestion-tabs {
+    gap: .45rem;
+    margin-bottom: 1rem;
+    padding: .35rem;
+    border: 1px solid var(--app-border);
+    border-radius: 13px;
+    background: #f8faff;
+}
+.gestion-page .gestion-tab { align-items: center; gap: .5rem; border-radius: 9px; padding: .6rem .85rem; }
+.gestion-tab-icon { width: 19px; height: 19px; object-fit: contain; }
+.gestion-page .gestion-tab.is-active { margin-bottom: 0; border-color: #dbe7ff; background: #fff; box-shadow: 0 2px 6px rgba(20, 33, 61, .05); }
+.gestion-page .gestion-panel .card { border-radius: 14px; }
+.gestion-page .gestion-card-header { padding: 1.1rem 1.25rem; }
+.gestion-page .gestion-card-header h2 { color: #1e3357; font-weight: 720; }
+.gestion-page .gestion-form { background: #f8faff; }
+.gestion-page .table thead th { padding-top: .8rem; padding-bottom: .8rem; }
+.gestion-page .table tbody tr { transition: background-color .15s ease; }
+.gestion-page .table tbody tr:hover { --bs-table-hover-bg: #f8faff; }
+.gestion-page .gestion-editor summary { display: inline-flex; align-items: center; }
+
+/* Cuenta y formularios de edicion */
+.cuenta-card { max-width: 760px; }
+.cuenta-card-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.15rem 1.35rem; }
+.cuenta-card-header h2 { color: #1e3357; font-weight: 720; }
+.cuenta-seguridad-icono { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 12px; background: #eff6ff; color: #3267e3; }
+.cuenta-seguridad-icono svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.cuenta-formulario { max-width: 560px; padding: 1.35rem; }
+.cuenta-formulario .form-label,
+.edicion-formulario .form-label { margin-bottom: .4rem; color: #34445e; font-size: .83rem; font-weight: 650; }
+.cuenta-boton-guardar { min-height: 44px; }
+.edicion-card { max-width: 900px; }
+.edicion-card-header { padding: 1.1rem 1.3rem; }
+.edicion-card-header h2 { color: #1e3357; font-weight: 720; }
+.edicion-formulario { margin: 0; padding: 1.3rem; }
+.edicion-formulario > .form-check { padding-top: .35rem; padding-bottom: .35rem; }
+.edicion-acciones { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .25rem; padding-top: 1rem; border-top: 1px solid #edf1f6; }
+
+/* Acceso y estados de error */
+.login-page { display: flex; flex-direction: column; background: #f1f5f9 !important; }
+.login-shell { width: 100%; flex: 1 0 auto; min-height: 100vh; max-width: none; padding: 2rem 1rem; }
+.login-card { max-width: 460px; border-radius: 18px; box-shadow: 0 20px 55px rgba(20, 33, 61, .11); }
+.login-card .card-body { padding: clamp(1.6rem, 5vw, 2.5rem); }
+.login-brand { display: flex; align-items: center; gap: .9rem; margin-bottom: 1.3rem; }
+.login-brand-icon { display: grid; width: 54px; height: 54px; padding: .45rem; border-radius: 14px; background: #eff6ff; object-fit: contain; }
+.login-brand-kicker { color: #64748b; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.login-brand h1 { color: #172554; font-weight: 750; letter-spacing: -.03em; }
+.login-subtitulo { margin-bottom: 1.5rem; color: #64748b; }
+.login-card .form-label { color: #34445e; font-size: .83rem; font-weight: 650; }
+.login-boton { min-height: 46px; }
+.login-pie { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #edf1f6; color: #718096; font-size: .78rem; text-align: center; }
+.error-page { display: flex; align-items: center; background: #f1f5f9 !important; }
+.error-shell { display: grid; min-height: 100vh; place-items: center; }
+.error-card { width: 100%; max-width: 560px; padding: clamp(1.5rem, 5vw, 2.5rem); border-radius: 16px; }
+.error-icono { display: grid; width: 46px; height: 46px; margin-bottom: 1rem; place-items: center; border-radius: 14px; background: #fef2f2; color: #dc3545; font-size: 1.5rem; font-weight: 800; }
+@media (max-width: 767.98px) {
+    .reportes-filtros-panel { padding: 1rem; }
+    .gestion-page .gestion-tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .gestion-page .gestion-tab { flex: 0 0 auto; }
+}
+@media (max-width: 575px) {
+    .reportes-encabezado,
+    .cuenta-encabezado,
+    .edicion-encabezado { align-items: flex-start; }
+    .reportes-boton-panel,
+    .cuenta-boton-panel,
+    .edicion-boton-volver { padding: .45rem .65rem; font-size: .8rem; }
+    .reportes-detalle-encabezado { align-items: flex-start; }
+    .dashboard-page .dashboard-heading { align-items: flex-start; }
+    .dashboard-page .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-page .dashboard-metric { min-height: 110px; }
+    .dashboard-page .dashboard-metric-icon { flex-basis: 32px; width: 32px; height: 32px; border-radius: 9px; }
+    .dashboard-page .dashboard-metric-icon img { width: 20px; height: 20px; }
+    .cuenta-formulario { padding: 1rem; }
+    .edicion-formulario { padding: 1rem; }
+    .edicion-acciones .btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-page .dashboard-metric,
+    .gestion-page .table tbody tr { transition: none; }
 }
 @media print {
     .app-navbar, .no-print, footer, .btn, form { display: none !important; }

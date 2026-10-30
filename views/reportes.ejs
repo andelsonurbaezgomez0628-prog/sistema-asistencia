@@ -7,15 +7,15 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="/css/estilos.css" rel="stylesheet">
 </head>
-<body>
+<body class="reportes-page">
   <%- include('partials/nav') %>
   <%
     const fechaCorta = (valor) => String(valor).split('-').reverse().join('/');
     const segmentos = [
-      { clave: 'presentes', etiqueta: 'Asistencias', valor: resumenRegistros.presentes, color: '#198754' },
-      { clave: 'tardanzas', etiqueta: 'Tardanzas', valor: resumenRegistros.tardanzas, color: '#e6a817' },
-      { clave: 'ausencias', etiqueta: 'Ausencias', valor: resumenRegistros.ausencias, color: '#dc3545' },
-      { clave: 'justificadas', etiqueta: 'Justificadas', valor: resumenRegistros.justificadas, color: '#3267e3' },
+      { clave: 'presentes', etiqueta: 'Asistencias', valor: resumenRegistros.presentes, color: '#10B981' },
+      { clave: 'tardanzas', etiqueta: 'Tardanzas', valor: resumenRegistros.tardanzas, color: '#F59E0B' },
+      { clave: 'ausencias', etiqueta: 'Ausencias', valor: resumenRegistros.ausencias, color: '#EF4444' },
+      { clave: 'justificadas', etiqueta: 'Justificadas', valor: resumenRegistros.justificadas, color: '#2563EB' },
     ];
     // Cada porcion usa el perimetro del circulo como 100 unidades. El desfase
     // negativo arranca cada porcion donde termina la anterior.
@@ -27,16 +27,25 @@
     }
   %>
   <main class="container py-4">
-    <h1 class="h3 mb-3">Reporte de asistencia</h1>
-    <form class="row g-2 align-items-end mb-3" method="get" action="/reportes">
+    <header class="reportes-encabezado">
+      <div>
+        <p class="dashboard-kicker mb-1">Análisis académico</p>
+        <h1 class="h3 mb-1 page-heading"><img class="page-icon" src="/icons/reporte-de-negocios.png" alt="" aria-hidden="true">Reporte de asistencia</h1>
+        <p class="dashboard-subtitle mb-0">Consulta tendencias y registros por curso, sección y período.</p>
+      </div>
+      <a class="btn reportes-boton-panel" href="/">Panel</a>
+    </header>
+    <section class="reportes-filtros-panel" aria-label="Filtros del reporte">
+      <form class="row g-2 align-items-end" method="get" action="/reportes">
       <div class="col-sm-6 col-lg-2"><label class="form-label" for="desde">Desde</label><input class="form-control" type="date" id="desde" name="desde" value="<%= desde %>" max="<%= hoy %>" required></div>
       <div class="col-sm-6 col-lg-2"><label class="form-label" for="hasta">Hasta</label><input class="form-control" type="date" id="hasta" name="hasta" value="<%= hasta %>" max="<%= hoy %>" required></div>
       <div class="col-sm-6 col-lg-3"><label class="form-label" for="curso">Curso</label><select class="form-select" id="curso" name="curso"><option value="">Todos</option><% for (const curso of cursos) { %><option value="<%= curso.id %>" <%= idCurso === Number(curso.id) ? 'selected' : '' %>><%= curso.nombre %></option><% } %></select></div>
       <div class="col-sm-6 col-lg-3"><label class="form-label" for="seccion">Seccion</label><select class="form-select" id="seccion" name="seccion"><option value="">Todas</option><% for (const seccion of secciones) { %><option value="<%= seccion.id %>" <%= idSeccion === Number(seccion.id) ? 'selected' : '' %>><%= seccion.curso %> · <%= seccion.nombre %></option><% } %></select></div>
       <div class="col-lg-2"><button class="btn btn-primary w-100" type="submit">Filtrar</button></div>
-    </form>
+      </form>
+    </section>
 
-    <p class="reportes-rango text-secondary">
+    <p class="reportes-rango reportes-contexto text-secondary">
       Del <strong><%= fechaCorta(desde) %></strong> al <strong><%= fechaCorta(hasta) %></strong>
       · <%= filas.length %> estudiante(s) · Asistencia general <strong><%= asistenciaGeneral %>%</strong>
     </p>
@@ -44,11 +53,11 @@
     <section class="reportes-graficos" aria-label="Reportes visuales">
       <article class="card grafico-card">
         <div class="card-header">
-          <h2 class="h5 mb-0">Distribucion de registros</h2>
+          <h2 class="h5 mb-0">Distribución de registros</h2>
           <p class="grafico-subtitulo mb-0"><%= totalRegistros %> registro(s) en el rango elegido</p>
         </div>
         <div class="card-body grafico-dona-cuerpo">
-          <svg class="grafico-dona" viewBox="0 0 42 42" role="img" aria-label="Grafico de pastel: distribucion de registros entre asistencias, tardanzas, ausencias y justificadas">
+          <svg class="grafico-dona" viewBox="0 0 42 42" role="img" aria-label="Gráfico de pastel: distribución de registros entre asistencias, tardanzas, ausencias y justificadas">
             <circle class="grafico-dona-base" cx="21" cy="21" r="15.9155"></circle>
             <% for (const segmento of segmentos) { %>
               <% if (segmento.porcentaje > 0) { %>
@@ -87,7 +96,7 @@
                   <span class="grafico-barra-nombre" title="<%= item.curso %>"><%= item.curso %></span>
                   <progress class="barra-asistencia" max="100" value="<%= item.porcentaje %>" aria-label="Asistencia de <%= item.curso %>: <%= item.porcentaje %>%"><%= item.porcentaje %>%</progress>
                   <span class="grafico-barra-valor"><%= item.porcentaje %>%</span>
-                  <span class="grafico-barra-detalle"><%= item.asistencias %> de <%= item.dias %> dia(s)</span>
+                  <span class="grafico-barra-detalle"><%= item.asistencias %> de <%= item.dias %> día(s)</span>
                 </li>
               <% } %>
             </ul>
@@ -96,9 +105,16 @@
       </article>
     </section>
 
-    <h2 class="h5 mb-2">Detalle por estudiante</h2>
-    <div class="table-responsive"><table class="table table-hover align-middle">
-      <thead><tr><th>Estudiante</th><th>Curso / seccion</th><th>Asistencias</th><th>Tardanzas</th><th>Ausencias</th><th>Justificadas</th><th class="col-porcentaje">% asistencia</th></tr></thead>
+    <section class="card reportes-detalle-card">
+      <header class="card-header reportes-detalle-encabezado">
+        <div>
+          <h2 class="h5 mb-0">Detalle por estudiante</h2>
+          <p class="grafico-subtitulo mb-0">Registros individuales para el rango seleccionado.</p>
+        </div>
+        <span class="reportes-total-estudiantes"><%= filas.length %> estudiantes</span>
+      </header>
+      <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Estudiante</th><th>Curso / sección</th><th>Asistencias</th><th>Tardanzas</th><th>Ausencias</th><th>Justificadas</th><th class="col-porcentaje">% asistencia</th></tr></thead>
       <tbody><% for (const fila of filas) { const diasRegistradosFila = Number(fila.dias_registrados || 0); const porcentaje = diasRegistradosFila > 0 ? Math.round((Number(fila.asistencias || 0) / diasRegistradosFila) * 100) : 0; %>
         <tr>
           <td><%= fila.apellido %>, <%= fila.nombre %><div class="small text-secondary">Lista N° <%= fila.numero_lista %></div></td>
@@ -119,8 +135,9 @@
           </td>
         </tr>
       <% } %></tbody>
-    </table></div>
-    <% if (filas.length === 0) { %><p class="text-secondary">No hay registros para esos filtros.</p><% } %>
+      </table></div>
+      <% if (filas.length === 0) { %><p class="text-secondary reportes-sin-resultados">No hay registros para esos filtros.</p><% } %>
+    </section>
   </main>
 </body>
 </html>

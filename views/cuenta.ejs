@@ -7,18 +7,34 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="/css/estilos.css" rel="stylesheet">
 </head>
-<body>
+<body class="cuenta-page">
   <%- include('partials/nav') %>
   <main class="container py-4">
-    <h1 class="h3 mb-3">Cambiar contrasena</h1>
+    <header class="cuenta-encabezado">
+      <div>
+        <p class="dashboard-kicker mb-1">Preferencias personales</p>
+        <h1 class="h3 mb-1 page-heading"><img class="page-icon" src="/icons/profesor.png" alt="" aria-hidden="true">Mi cuenta</h1>
+        <p class="dashboard-subtitle mb-0">Administra de forma segura el acceso a tu cuenta.</p>
+      </div>
+      <a class="btn cuenta-boton-panel" href="/">Panel</a>
+    </header>
     <% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
-    <form class="col-lg-6" method="post" action="/cuenta/clave" autocomplete="off">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <div class="mb-3"><label class="form-label" for="clave_actual">Contrasena actual</label><input class="form-control" id="clave_actual" name="clave_actual" type="password" autocomplete="current-password" maxlength="200" required></div>
-      <div class="mb-3"><label class="form-label" for="clave_nueva">Nueva contrasena</label><input class="form-control" id="clave_nueva" name="clave_nueva" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
-      <div class="mb-3"><label class="form-label" for="confirmar_clave">Confirmar nueva contrasena</label><input class="form-control" id="confirmar_clave" name="confirmar_clave" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
-      <button class="btn btn-primary" type="submit">Actualizar contrasena</button>
-    </form>
+    <section class="card cuenta-card">
+      <header class="card-header cuenta-card-header">
+        <div>
+          <h2 class="h5 mb-1">Cambiar contraseña</h2>
+          <p class="text-secondary small mb-0">Confirma tu contraseña actual y elige una nueva.</p>
+        </div>
+        <span class="cuenta-seguridad-icono" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></svg></span>
+      </header>
+      <form class="cuenta-formulario" method="post" action="/cuenta/clave" autocomplete="off">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="mb-3"><label class="form-label" for="clave_actual">Contraseña actual</label><input class="form-control" id="clave_actual" name="clave_actual" type="password" autocomplete="current-password" maxlength="200" required></div>
+        <div class="mb-3"><label class="form-label" for="clave_nueva">Nueva contraseña</label><input class="form-control" id="clave_nueva" name="clave_nueva" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
+        <div class="mb-4"><label class="form-label" for="confirmar_clave">Confirmar nueva contraseña</label><input class="form-control" id="confirmar_clave" name="confirmar_clave" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
+        <button class="btn btn-primary cuenta-boton-guardar" type="submit">Actualizar contraseña</button>
+      </form>
+    </section>
   </main>
 </body>
 </html>
