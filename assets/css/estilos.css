@@ -125,6 +125,18 @@ body {
     color: #fff;
     align-items: center;
 }
+.navbar-user-link {
+    display: flex;
+    padding: .35rem .5rem;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    color: #fff;
+    text-decoration: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+.navbar-user-link:hover,
+.navbar-user-link.active { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.12); color: #fff; }
+.navbar-user-link:focus-visible { outline: 3px solid #a9c5ff; outline-offset: 2px; }
 .navbar-user-details {
     display: flex;
     flex-direction: column;

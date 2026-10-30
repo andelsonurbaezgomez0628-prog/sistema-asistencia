@@ -117,6 +117,8 @@ test('la barra superior muestra el rol del usuario', async () => {
   });
   assert.match(html, /navbar-user-role/);
   assert.match(html, />Docente<\/span>/);
+  assert.match(html, /class="navbar-user navbar-user-link[^\"]*" href="\/cuenta"/);
+  assert.doesNotMatch(html, /class="nav-item-icon[^\"]*" href="\/cuenta"/);
 });
 
 test('cuenta permite editar datos personales y presenta el resumen de la cuenta actual', async () => {
