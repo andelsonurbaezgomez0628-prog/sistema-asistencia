@@ -4,6 +4,7 @@ const FALTAS_ALTO = 5;
 const TARDANZAS_EXTRA = 4;
 const RACHA_ALTO = 3;
 
+// Convierte una fecha en dias UTC para comparar dias consecutivos sin zona horaria.
 function numeroDeDia(fecha) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     throw new TypeError('La fecha debe tener formato YYYY-MM-DD.');
@@ -29,6 +30,7 @@ export function calcula_racha_maxima(fechas) {
   if (fechas.length === 0) return 0;
 
   // Se usan dias UTC para que los cambios de horario no alteren la racha.
+  // Quitamos fechas duplicadas y ordenamos antes de contar la secuencia mas larga.
   const dias = [...new Set(fechas.map(numeroDeDia))].sort((a, b) => a - b);
   let rachaActual = 1;
   let rachaMaxima = 1;
@@ -52,6 +54,7 @@ export function clasificar_riesgo(faltas, tardanzas, racha) {
     }
   }
 
+  // Cuatro tardanzas o mas agregan un punto total al puntaje de ausencias.
   let score = faltas;
   if (tardanzas >= TARDANZAS_EXTRA) score += 1;
 

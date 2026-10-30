@@ -26,6 +26,8 @@ const sessionStore = new PostgresSessionStore(pool);
 app.set('view engine', 'ejs');
 app.set('views', path.join(carpetaProyecto, 'views'));
 app.disable('x-powered-by');
+
+// 1. Preparar protecciones HTTP y archivos estaticos.
 // Render entrega el trafico mediante un proxy HTTPS: confiar en un salto
 // permite cookies Secure y que el rate limit lea la IP real del cliente.
 if (config.trustProxy) app.set('trust proxy', 1);
@@ -57,6 +59,8 @@ app.use(session({
     maxAge: 8 * 60 * 60 * 1000,
   },
 }));
+
+// 2. Preparar datos comunes que usan las vistas y cargar la cuenta de la sesion.
 app.use((req, res, next) => {
   if (!req.session.csrfToken) req.session.csrfToken = crearTokenCsrf();
   res.locals.csrfToken = req.session.csrfToken;
@@ -81,6 +85,7 @@ const limiteLogin = rateLimit({
   message: 'Demasiados intentos. Intenta de nuevo mas tarde.',
 });
 
+// 3. Inicio y cierre de sesion.
 app.get('/login', (req, res) => {
   if (req.user) return res.redirect('/');
   return res.render('login', { error: null });
@@ -121,6 +126,7 @@ app.post('/logout', protegerCsrf, (req, res, next) => {
   });
 });
 
+// 4. Pagina principal: el resumen depende del rol confirmado en PostgreSQL.
 app.get('/', requerirLogin, async (req, res, next) => {
   try {
     let resumen;
@@ -160,6 +166,7 @@ app.get('/', requerirLogin, async (req, res, next) => {
 app.use('/', seguimiento);
 app.use('/gestion', administracion);
 
+// 5. Estado del servicio y respuestas genericas ante errores.
 app.get('/health', async (req, res, next) => {
   try {
     await consulta('SELECT 1');
@@ -183,6 +190,7 @@ const servidor = app.listen(config.port, config.host, () => {
   );
 });
 
+// Cerrar conexiones al detener el proceso para evitar sesiones a medio guardar.
 async function cerrarServidor() {
   servidor.close();
   sessionStore.close();

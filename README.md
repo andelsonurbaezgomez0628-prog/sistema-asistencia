@@ -131,6 +131,7 @@ resultado y mejora, sin capturar datos personales innecesarios.
 
 ## Documentacion
 
+- [Explicacion sencilla para conocer y presentar el sistema](docs/explicacion-sencilla.md)
 - [Documentacion completa del proyecto](docs/documentacion-completa.md)
 - [Instalacion local](docs/instalacion-local.md)
 - [Modelo de datos](docs/base-de-datos.md)

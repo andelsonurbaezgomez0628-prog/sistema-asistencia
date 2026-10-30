@@ -24,6 +24,7 @@ if (forzar && !confirmar) {
   process.exit(1);
 }
 
+// Ejecuta las sentencias de un archivo en el orden en que fueron escritas.
 async function ejecutarArchivo(nombre) {
   const ruta = path.join(raiz, 'sql', nombre);
   const contenido = await readFile(ruta, 'utf8');
@@ -73,6 +74,7 @@ async function migrarDocentesSeccion() {
 }
 
 try {
+  // Primero confirmar si existe el esquema completo o si hay una instalacion parcial.
   const { rows: [{ total }] } = await pool.query(
     `SELECT COUNT(*) AS total
      FROM information_schema.tables
@@ -91,6 +93,7 @@ try {
     await ejecutarArchivo('schema.sql');
   }
 
+  // Solo crear datos demo en una base nueva o en una reinstalacion confirmada.
   if (!instalada || forzar) {
     const { rows: [{ total: usuarios }] } = await pool.query('SELECT COUNT(*) AS total FROM usuarios');
     if (Number(usuarios) > 0 && !forzar) {
@@ -101,6 +104,7 @@ try {
     console.log('Se conservaron los datos existentes; no se duplico la demostracion.');
   }
 
+  // Aplicar cambios compatibles y asegurar que la tabla de sesiones exista.
   await migrarNumeroLista();
   await migrarDocentesSeccion();
   await ejecutarArchivo('sesiones.sql');

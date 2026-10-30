@@ -4,6 +4,8 @@ import { db, consulta } from '../db.js';
 import { protegerCsrf, requerirAdmin, validarId } from '../security.js';
 
 const router = Router();
+
+// Validaciones de los campos que se usan en las pantallas de gestion.
 const cedulaValida = (valor) => typeof valor === 'string' && /^[0-9]{7,8}$/.test(valor);
 const numeroListaValido = (valor) => typeof valor === 'string' && /^[1-9][0-9]?$/.test(valor) && Number(valor) <= 40;
 const textoValido = (valor, maximo) => typeof valor === 'string' && valor.trim().length > 0 && valor.trim().length <= maximo;
@@ -22,6 +24,7 @@ const contarAdminsActivos = async () => {
   return Number(filas[0].total);
 };
 
+// Convierte las casillas de docentes en una lista de IDs segura y sin repetidos.
 function normalizarIdsDocentes(valor) {
   const lista = Array.isArray(valor) ? valor : typeof valor === 'string' ? [valor] : [];
   if (lista.length === 0 || lista.length > 100) return null;
@@ -48,6 +51,7 @@ async function docentesValidos(ids, seccionId = null) {
   return filas.length === ids.length;
 }
 
+// Guarda la seccion y sus docentes juntos; si algo falla, no deja cambios parciales.
 async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
   const conexion = await db.connect();
   try {
@@ -85,6 +89,7 @@ async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
 
 router.use(requerirAdmin);
 
+// Inicio de Gestion: carga las listas que usan las pestañas de administracion.
 router.get('/', async (req, res, next) => {
   try {
     const [cursos, secciones, estudiantes, docentes, administradores] = await Promise.all([
@@ -129,17 +134,22 @@ router.get('/', async (req, res, next) => {
 router.get('/editar/:tipo/:id', async (req, res, next) => {
   const { tipo } = req.params;
   const id = validarId(req.params.id);
-  const tablas = {
-    seccion: ['secciones', 'SELECT id, nombre, curso_id, anio_escolar FROM secciones WHERE id = $1'],
-    estudiante: ['estudiantes', 'SELECT id, numero_lista, nombre, apellido, fecha_nacimiento, seccion_id, activo FROM estudiantes WHERE id = $1'],
-    docente: ['usuarios', "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'docente'"],
-    administrador: ['usuarios', "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'admin'"],
+  // Cada tipo tiene una consulta fija; el nombre del tipo nunca se inserta en SQL.
+  const consultaPorTipo = {
+    seccion: 'SELECT id, nombre, curso_id, anio_escolar FROM secciones WHERE id = $1',
+    estudiante: 'SELECT id, numero_lista, nombre, apellido, fecha_nacimiento, seccion_id, activo FROM estudiantes WHERE id = $1',
+    docente: "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'docente'",
+    administrador: "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'admin'",
   };
-  if (!id || !tablas[tipo]) return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
+  if (!id || !consultaPorTipo[tipo]) {
+    return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
+  }
 
   try {
-    const filas = await consulta(tablas[tipo][1], [id]);
+    const filas = await consulta(consultaPorTipo[tipo], [id]);
     if (filas.length === 0) return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
+
+    // Cargar listas auxiliares solo para los formularios que las necesitan.
     const [cursos, secciones, docentes, docentesAsignados] = await Promise.all([
       tipo === 'seccion' ? consulta('SELECT id, nombre FROM cursos ORDER BY nombre') : [],
       tipo === 'estudiante' ? consulta('SELECT s.id, s.nombre, c.nombre AS curso FROM secciones s INNER JOIN cursos c ON c.id = s.curso_id ORDER BY c.nombre, s.nombre') : [],
@@ -175,7 +185,9 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
   if (!id) return res.status(400).render('error', { mensaje: 'El identificador no es valido.' });
 
   try {
+    // El tipo define que campos validar y que tabla se actualiza.
     if (tipo === 'seccion') {
+      // La seccion necesita un curso existente y docentes activos o ya asignados.
       const cursoId = validarId(String(req.body.curso_id || ''));
       const docenteIds = normalizarIdsDocentes(req.body.docente_ids);
       const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
@@ -190,6 +202,7 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
       }
       await guardarSeccion({ id, nombre, cursoId, anio, docenteIds });
     } else if (tipo === 'estudiante') {
+      // El numero de lista debe ser unico dentro de la seccion.
       const numeroLista = typeof req.body.numero_lista === 'string' ? req.body.numero_lista.trim() : '';
       const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
       const apellido = typeof req.body.apellido === 'string' ? req.body.apellido.trim() : '';
@@ -202,10 +215,12 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
         return res.redirect(`/gestion/editar/estudiante/${id}`);
       }
       await consulta(
-          `UPDATE estudiantes SET numero_lista = $1, nombre = $2, apellido = $3, fecha_nacimiento = $4, seccion_id = $5, activo = $6 WHERE id = $7`,
+        `UPDATE estudiantes SET numero_lista = $1, nombre = $2, apellido = $3,
+          fecha_nacimiento = $4, seccion_id = $5, activo = $6 WHERE id = $7`,
         [numeroLista, nombre, apellido, nacimiento, seccionId, activo, id],
       );
     } else if (tipo === 'docente' || tipo === 'administrador') {
+      // La ruta determina el rol; solo se reemplaza el hash si se envio una clave nueva.
       const rol = ROLES_CUENTA[tipo];
       const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
       const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
@@ -268,6 +283,7 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
   }
 });
 
+// Cursos y secciones: crear, actualizar o eliminar solo cuando no rompa relaciones.
 router.post('/cursos', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
@@ -362,6 +378,7 @@ router.post('/secciones/:id/eliminar', protegerCsrf, async (req, res, next) => {
   }
 });
 
+// Estudiantes: actualizar datos o desactivar conservando el historial escolar.
 router.post('/estudiantes', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const numeroLista = typeof req.body.numero_lista === 'string' ? req.body.numero_lista.trim() : '';
@@ -419,6 +436,7 @@ router.post('/estudiantes/:id/desactivar', protegerCsrf, async (req, res, next) 
   }
 });
 
+// Cuentas del personal: contrasenas con hash y rol fijado por la ruta del servidor.
 router.post('/docentes', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';

@@ -2,6 +2,7 @@ const botonMenu = document.querySelector('[data-nav-toggle]');
 const menu = document.querySelector('#primaryMenu');
 const mobileQuery = window.matchMedia('(max-width: 767.98px)');
 
+// Si existe la botonera, mantener menu, etiqueta accesible y estado sincronizados.
 if (botonMenu && menu) {
   document.documentElement.classList.add('nav-js');
 

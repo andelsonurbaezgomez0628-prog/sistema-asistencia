@@ -12,6 +12,7 @@ export function protegerCsrf(req, res, next) {
     return res.status(403).render('error', { mensaje: 'La solicitud vencio. Recarga la pagina.' });
   }
 
+  // timingSafeEqual requiere buffers de igual longitud; la longitud se revisa primero.
   const enviadoBuffer = Buffer.from(enviado);
   const guardadoBuffer = Buffer.from(guardado);
   if (enviadoBuffer.length !== guardadoBuffer.length || !timingSafeEqual(enviadoBuffer, guardadoBuffer)) {
@@ -26,6 +27,7 @@ export function crearCargarUsuarioActual(consulta) {
     if (!req.session.userId) return next();
 
     try {
+      // La sesion identifica la cuenta, pero PostgreSQL confirma que siga activa.
       const filas = await consulta(
         'SELECT id, nombre, usuario, rol FROM usuarios WHERE id = $1 AND activo = TRUE LIMIT 1',
         [req.session.userId],

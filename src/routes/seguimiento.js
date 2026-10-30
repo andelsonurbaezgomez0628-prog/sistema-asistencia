@@ -9,6 +9,7 @@ const estadosPermitidos = new Set(['presente', 'tardanza', 'ausente', 'justifica
 const nivelesPermitidos = new Set(['bajo', 'medio', 'alto']);
 const estadosAlertaPermitidos = new Set(['pendiente', 'atendida']);
 
+// Cuenta: el usuario solo puede consultar y modificar su propio perfil.
 async function buscarCuentaActual(id) {
   const filas = await consulta(
     'SELECT id, nombre, cedula, usuario, rol, activo FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
@@ -102,6 +103,7 @@ function esFechaValida(fecha) {
   return Number.isFinite(fechaUtc.getTime()) && fechaUtc.toISOString().slice(0, 10) === fecha;
 }
 
+// Devuelve todas las secciones a admin y solo las asignadas al docente.
 async function seccionesDisponibles(usuario) {
   const filtroDocente = usuario.rol === 'docente'
     ? 'WHERE EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $1)'
@@ -116,7 +118,10 @@ async function seccionesDisponibles(usuario) {
 }
 
 async function calcularAlerta(conexion, idEstudiante) {
+  // PostgreSQL define la fecha local de negocio y el periodo incluye hoy y 29 dias previos.
   const { rows: [{ hoy }] } = await conexion.query('SELECT CURRENT_DATE AS hoy');
+
+  // Contar faltas y tardanzas, y obtener las fechas que sirven para calcular la racha.
   const { rows: [conteo] } = await conexion.query(
     `SELECT COUNT(*) FILTER (WHERE estado = 'ausente') AS faltas,
        COUNT(*) FILTER (WHERE estado = 'tardanza') AS tardanzas
@@ -133,6 +138,8 @@ async function calcularAlerta(conexion, idEstudiante) {
   const tardanzas = Number(conteo.tardanzas || 0);
   const racha = calcula_racha_maxima(filasFechas.map((fila) => fila.fecha));
   const riesgo = clasificar_riesgo(faltas, tardanzas, racha);
+
+  // Mantener una alerta pendiente del dia; si no existe, crearla mas abajo.
   const { rows: alertasHoy } = await conexion.query(
     `SELECT id FROM alertas
      WHERE estudiante_id = $1 AND fecha_deteccion = $2 AND estado = 'pendiente' LIMIT 1`,
@@ -147,12 +154,13 @@ async function calcularAlerta(conexion, idEstudiante) {
   }
 
   if (riesgo.nivel === 'bajo') {
+    // Cuando el riesgo desaparece, cerrar las alertas que seguian pendientes.
     await conexion.query(
       "UPDATE alertas SET estado = 'atendida' WHERE estudiante_id = $1 AND estado = 'pendiente'",
       [idEstudiante],
     );
   } else if (alertasHoy.length === 0) {
-     await conexion.query(
+    await conexion.query(
       `INSERT INTO alertas
        (estudiante_id, nivel, faltas_30_dias, racha_maxima, mensaje, fecha_deteccion)
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -163,6 +171,7 @@ async function calcularAlerta(conexion, idEstudiante) {
   return riesgo;
 }
 
+// Asistencia: mostrar lista y guardar todos sus estados en una transaccion.
 router.get('/asistencia', requerirLogin, async (req, res, next) => {
   try {
     const secciones = await seccionesDisponibles(req.user);
@@ -191,6 +200,7 @@ router.get('/asistencia', requerirLogin, async (req, res, next) => {
 });
 
 router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) => {
+  // Rechazar una seccion o fecha mal formada antes de abrir una transaccion.
   const idSeccion = validarId(String(req.body.seccion_id || ''));
   const fecha = req.body.fecha;
   if (!idSeccion || !esFechaValida(fecha)) {
@@ -200,6 +210,7 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
 
   const conexion = await db.connect();
   try {
+    // La fecha se valida contra PostgreSQL para usar el calendario de la escuela.
     await conexion.query('BEGIN');
     const { rows: [{ hoy }] } = await conexion.query('SELECT CURRENT_DATE AS hoy');
     if (fecha > hoy) {
@@ -208,6 +219,7 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       return res.redirect('/asistencia');
     }
 
+    // Confirmar que el docente esta asignado a la seccion solicitada.
     const { rows: secciones } = await conexion.query(
       `SELECT id FROM secciones WHERE id = $1 ${req.user.rol === 'docente'
         ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = secciones.id AND sd.docente_id = $2)'
@@ -219,6 +231,7 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       return res.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
     }
 
+    // Tomar la lista real del servidor y exigir un estado para cada estudiante activo.
     const { rows: estudiantes } = await conexion.query(
       'SELECT id FROM estudiantes WHERE seccion_id = $1 AND activo IS TRUE',
       [idSeccion],
@@ -247,6 +260,7 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       entradas.push({ id, estado, observacion });
     }
 
+    // Guardar cada marca y recalcular su alerta dentro de la misma transaccion.
     let conRiesgo = 0;
     for (const { id, estado, observacion } of entradas) {
       const observacionLimpia = (observacion || '').trim().slice(0, 255) || null;
@@ -272,8 +286,10 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
   }
 });
 
+// Alertas: filtrar por nivel/estado y permitir que admin recalcule el conjunto completo.
 router.get('/alertas', requerirLogin, async (req, res, next) => {
   try {
+    // Aceptar solo filtros conocidos antes de formar la consulta.
     const nivel = nivelesPermitidos.has(req.query.nivel) ? req.query.nivel : '';
     const estado = estadosAlertaPermitidos.has(req.query.estado) ? req.query.estado : '';
     const filtros = [];
@@ -290,6 +306,7 @@ router.get('/alertas', requerirLogin, async (req, res, next) => {
       valores.push(estado);
       filtros.push(`a.estado = $${valores.length}`);
     }
+    // Los filtros son condiciones internas; cada valor sigue viajando como parametro SQL.
     const where = filtros.length ? `WHERE ${filtros.join(' AND ')}` : '';
     const alertas = await consulta(
       `SELECT a.id, a.nivel, a.faltas_30_dias, a.racha_maxima, a.mensaje,
@@ -325,6 +342,7 @@ router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (req, res,
 
   const conexion = await db.connect();
   try {
+    // Recalcular todas las cuentas activas como una sola operacion confirmable.
     await conexion.query('BEGIN');
     const { rows: estudiantes } = await conexion.query('SELECT id FROM estudiantes WHERE activo IS TRUE');
     let conRiesgo = 0;
@@ -353,6 +371,7 @@ router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (req, res
   const conexion = await db.connect();
   try {
     await conexion.query('BEGIN');
+    // Bloquear esta alerta mientras se comprueba el permiso y se registra su atencion.
     const { rows: alertas } = await conexion.query(
       `SELECT a.id, a.mensaje, a.estado,
         EXISTS (
@@ -395,8 +414,51 @@ router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (req, res
   }
 });
 
+// Reportes: comprobar filtros, consultar filas autorizadas y preparar sus totales.
+function resumirReportes(filas) {
+  const resumenRegistros = { presentes: 0, tardanzas: 0, ausencias: 0, justificadas: 0 };
+  const asistenciasPorCurso = new Map();
+  let diasRegistrados = 0;
+  let asistenciasTotales = 0;
+
+  for (const fila of filas) {
+    const asistencias = Number(fila.asistencias || 0);
+    const tardanzas = Number(fila.tardanzas || 0);
+    const dias = Number(fila.dias_registrados || 0);
+
+    // La consulta ya suma tardanzas dentro de asistencias; restarlas evita contarlas dos veces.
+    resumenRegistros.presentes += asistencias - tardanzas;
+    resumenRegistros.tardanzas += tardanzas;
+    resumenRegistros.ausencias += Number(fila.ausencias || 0);
+    resumenRegistros.justificadas += Number(fila.justificadas || 0);
+    diasRegistrados += dias;
+    asistenciasTotales += asistencias;
+
+    const acumulado = asistenciasPorCurso.get(fila.curso_id)
+      || { curso: fila.curso, asistencias: 0, dias: 0 };
+    acumulado.asistencias += asistencias;
+    acumulado.dias += dias;
+    asistenciasPorCurso.set(fila.curso_id, acumulado);
+  }
+
+  const totalRegistros = Object.values(resumenRegistros)
+    .reduce((total, valor) => total + valor, 0);
+  const asistenciaGeneral = diasRegistrados > 0
+    ? Math.round((asistenciasTotales / diasRegistrados) * 100)
+    : 0;
+  const resumenCursos = [...asistenciasPorCurso.values()].map((item) => ({
+    curso: item.curso,
+    asistencias: item.asistencias,
+    dias: item.dias,
+    porcentaje: item.dias > 0 ? Math.round((item.asistencias / item.dias) * 100) : 0,
+  }));
+
+  return { resumenRegistros, totalRegistros, asistenciaGeneral, resumenCursos };
+}
+
 router.get('/reportes', requerirLogin, async (req, res, next) => {
   try {
+    // Usar fechas de PostgreSQL y limitar por defecto la consulta a los ultimos 30 dias.
     const { rows: [{ hoy, iniciodefecto: inicioDefecto }] } = await db.query(
       'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto',
     );
@@ -405,6 +467,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
     if (desde > hasta) {
       return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
     }
+    // Limpiar los IDs antes de usarlos y cargar solo cursos/secciones del alcance permitido.
     const idCurso = validarId(typeof req.query.curso === 'string' ? req.query.curso : '');
     const idSeccion = validarId(typeof req.query.seccion === 'string' ? req.query.seccion : '');
     const secciones = await seccionesDisponibles(req.user);
@@ -418,6 +481,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
         [req.user.id],
       );
 
+    // Armar condiciones con placeholders para que los filtros no formen SQL libre.
     const valores = [desde, hasta];
     const filtros = ['e.activo IS TRUE'];
     if (req.user.rol === 'docente') {
@@ -437,6 +501,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
     }
 
     const filas = await consulta(
+      // Una fila por estudiante; los FILTER cuentan cada estado dentro del rango elegido.
       `SELECT e.id, e.numero_lista, e.nombre, e.apellido, s.nombre AS seccion,
         c.id AS curso_id, c.nombre AS curso,
         COUNT(a.id) AS dias_registrados,
@@ -454,39 +519,8 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
       valores,
     );
 
-    // Datos para los reportes visuales. Se derivan de las mismas filas
-    // filtradas para que las cifras coincidan con la tabla.
-    const resumenRegistros = { presentes: 0, tardanzas: 0, ausencias: 0, justificadas: 0 };
-    const porCurso = new Map();
-    let diasRegistrados = 0;
-    let asistenciasTotales = 0;
-    for (const fila of filas) {
-      const asistencias = Number(fila.asistencias || 0);
-      const tardanzas = Number(fila.tardanzas || 0);
-      const dias = Number(fila.dias_registrados || 0);
-      // asistencias ya suma presente y tardanza; presentes evita contarla dos veces.
-      resumenRegistros.presentes += asistencias - tardanzas;
-      resumenRegistros.tardanzas += tardanzas;
-      resumenRegistros.ausencias += Number(fila.ausencias || 0);
-      resumenRegistros.justificadas += Number(fila.justificadas || 0);
-      diasRegistrados += dias;
-      asistenciasTotales += asistencias;
-
-      const acumulado = porCurso.get(fila.curso_id) || { curso: fila.curso, asistencias: 0, dias: 0 };
-      acumulado.asistencias += asistencias;
-      acumulado.dias += dias;
-      porCurso.set(fila.curso_id, acumulado);
-    }
-    const totalRegistros = Object.values(resumenRegistros).reduce((total, valor) => total + valor, 0);
-    const asistenciaGeneral = diasRegistrados > 0
-      ? Math.round((asistenciasTotales / diasRegistrados) * 100)
-      : 0;
-    const resumenCursos = [...porCurso.values()].map((item) => ({
-      curso: item.curso,
-      asistencias: item.asistencias,
-      dias: item.dias,
-      porcentaje: item.dias > 0 ? Math.round((item.asistencias / item.dias) * 100) : 0,
-    }));
+    // Los graficos y la tabla salen de las mismas filas filtradas.
+    const { resumenRegistros, totalRegistros, asistenciaGeneral, resumenCursos } = resumirReportes(filas);
 
     return res.render('reportes', {
       filas,

@@ -28,7 +28,7 @@ export function crearConfiguracion(variables = process.env) {
   const nodeEnv = variables.NODE_ENV || 'development';
   // Render define RENDER=true aunque NODE_ENV no se configure. Detectarlo evita
   // que el servicio quede sin cookies Secure o sin confiar en el proxy.
-  const enHosting = nodeEnv === 'production' || Boolean(variables.RENDER);
+  const usarAjustesDeHosting = nodeEnv === 'production' || Boolean(variables.RENDER);
   return Object.freeze({
     nodeEnv,
     // Siempre 0.0.0.0: el proxy del hosting necesita alcanzar la aplicacion.
@@ -37,8 +37,8 @@ export function crearConfiguracion(variables = process.env) {
     port,
     databaseUrl: databaseUrl.toString(),
     sessionSecret,
-    cookieSecure: enHosting,
-    trustProxy: enHosting,
+    cookieSecure: usarAjustesDeHosting,
+    trustProxy: usarAjustesDeHosting,
   });
 }
 

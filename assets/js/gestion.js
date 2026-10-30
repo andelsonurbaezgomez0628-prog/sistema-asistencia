@@ -3,6 +3,7 @@ const CLAVE_PESTANA = 'gestion-pestana-activa';
 const botonesPestana = Array.from(document.querySelectorAll('[data-gestion-tab]'));
 const selectorDocentes = document.querySelector('.gestion-docentes-dropdown');
 
+// Mostrar cuantas personas docentes estan marcadas en el selector de seccion.
 if (selectorDocentes) {
   const resumenDocentes = selectorDocentes.querySelector('[data-docentes-resumen]');
   const casillasDocentes = Array.from(selectorDocentes.querySelectorAll('input[name="docente_ids"]'));
@@ -77,6 +78,7 @@ if (botonesPestana.length > 0) {
   });
 }
 
+// Normalizar tildes para que una busqueda simple encuentre nombres escritos sin ellas.
 function normalizarTexto(texto) {
   return texto
     .toLowerCase()

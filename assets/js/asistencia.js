@@ -4,6 +4,7 @@ const avisoMarcarPresentes = document.querySelector('[data-aviso-marcar-presente
 const iconosEstado = { presente: '✓', tardanza: '◷', ausente: '!', justificado: 'i' };
 const contadoresEstado = Array.from(document.querySelectorAll('[data-conteo-estado]'));
 
+// Mantiene el color y el icono visuales de acuerdo con el estado seleccionado.
 function actualizarColorEstado(select) {
   for (const estado of ['presente', 'ausente', 'justificado', 'tardanza']) {
     select.classList.toggle(`estado-${estado}`, select.value === estado);
@@ -31,6 +32,7 @@ function actualizarContadores() {
   }
 }
 
+// Actualizar la vista cada vez que alguien cambia una marca de asistencia.
 for (const estado of estadosAsistencia) {
   actualizarColorEstado(estado);
   estado.addEventListener('change', () => {
