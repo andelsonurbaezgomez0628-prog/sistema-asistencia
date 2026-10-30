@@ -27,3 +27,16 @@ test('asistencia, alertas y reportes autorizan por asignacion de seccion', async
   assert.doesNotMatch(seguimiento, /s\.docente_id/);
   assert.doesNotMatch(servidor, /s\.docente_id/);
 });
+
+test('el perfil solo modifica datos de la cuenta autenticada y protege el cambio con CSRF', async () => {
+  const fuente = await readFile(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
+  const inicio = fuente.indexOf("router.post('/cuenta/perfil'");
+  const fin = fuente.indexOf("router.post('/cuenta/clave'", inicio);
+  const ruta = fuente.slice(inicio, fin);
+  assert.match(ruta, /router\.post\('\/cuenta\/perfil', requerirLogin, protegerCsrf/);
+  assert.match(ruta, /bcrypt\.compare\(claveActual, filas\[0\]\.password_hash\)/);
+  assert.match(ruta, /WHERE id = \$4 AND activo IS TRUE/);
+  assert.match(ruta, /\[nombre, cedula, usuario, req\.user\.id\]/);
+  assert.doesNotMatch(ruta, /req\.body\.(?:id|rol|activo)/);
+  assert.doesNotMatch(ruta, /UPDATE usuarios SET[^`]*\b(?:rol|activo)\s*=/);
+});

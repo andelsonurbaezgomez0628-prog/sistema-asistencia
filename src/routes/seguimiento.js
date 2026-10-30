@@ -9,14 +9,38 @@ const estadosPermitidos = new Set(['presente', 'tardanza', 'ausente', 'justifica
 const nivelesPermitidos = new Set(['bajo', 'medio', 'alto']);
 const estadosAlertaPermitidos = new Set(['pendiente', 'atendida']);
 
-router.get('/cuenta', requerirLogin, (req, res) => res.render('cuenta', { error: null }));
+async function buscarCuentaActual(id) {
+  const filas = await consulta(
+    'SELECT id, nombre, cedula, usuario, rol, activo FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
+    [id],
+  );
+  return filas[0] || null;
+}
 
-router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (req, res, next) => {
-  const claveActual = typeof req.body.clave_actual === 'string' ? req.body.clave_actual : '';
-  const claveNueva = typeof req.body.clave_nueva === 'string' ? req.body.clave_nueva : '';
-  const confirmarClave = typeof req.body.confirmar_clave === 'string' ? req.body.confirmar_clave : '';
-  if (claveNueva.length < 4 || claveNueva.length > 200 || claveNueva !== confirmarClave) {
-    return res.status(400).render('cuenta', { error: 'La nueva contrasena debe tener al menos 4 caracteres y coincidir.' });
+async function mostrarCuenta(res, id, error = null, valoresPerfil = null) {
+  const cuentaActual = await buscarCuentaActual(id);
+  if (!cuentaActual) return res.status(404).render('error', { mensaje: 'La cuenta no esta disponible.' });
+  return res.status(error ? 400 : 200).render('cuenta', { error, cuentaActual, valoresPerfil });
+}
+
+router.get('/cuenta', requerirLogin, async (req, res, next) => {
+  try {
+    return await mostrarCuenta(res, req.user.id);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (req, res, next) => {
+  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
+  const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
+  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
+  const claveActual = typeof req.body.clave_actual_perfil === 'string' ? req.body.clave_actual_perfil : '';
+  const valoresPerfil = { nombre, cedula, usuario };
+
+  if (!nombre || nombre.length > 120 || !/^[0-9]{7,8}$/.test(cedula)
+      || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario) || !claveActual || claveActual.length > 200) {
+    return mostrarCuenta(res, req.user.id, 'Revisa el nombre, la cédula, el usuario y la contraseña actual.', valoresPerfil).catch(next);
   }
 
   try {
@@ -25,7 +49,39 @@ router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (req, res, next)
       [req.user.id],
     );
     if (!filas[0] || !(await bcrypt.compare(claveActual, filas[0].password_hash))) {
-      return res.status(400).render('cuenta', { error: 'La contrasena actual no es correcta.' });
+      return await mostrarCuenta(res, req.user.id, 'La contraseña actual no es correcta.', valoresPerfil);
+    }
+
+    // El perfil solo cambia datos propios; el rol y la actividad quedan bajo administracion.
+    await consulta(
+      'UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3 WHERE id = $4 AND activo IS TRUE',
+      [nombre, cedula, usuario, req.user.id],
+    );
+    req.session.flash = 'Los datos de tu cuenta se actualizaron.';
+    return res.redirect('/cuenta');
+  } catch (error) {
+    if (error.code === '23505') {
+      return mostrarCuenta(res, req.user.id, 'Ese usuario o cédula ya pertenece a otra cuenta.', valoresPerfil).catch(next);
+    }
+    return next(error);
+  }
+});
+
+router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (req, res, next) => {
+  const claveActual = typeof req.body.clave_actual === 'string' ? req.body.clave_actual : '';
+  const claveNueva = typeof req.body.clave_nueva === 'string' ? req.body.clave_nueva : '';
+  const confirmarClave = typeof req.body.confirmar_clave === 'string' ? req.body.confirmar_clave : '';
+  if (claveNueva.length < 4 || claveNueva.length > 200 || claveNueva !== confirmarClave) {
+    return mostrarCuenta(res, req.user.id, 'La nueva contraseña debe tener al menos 4 caracteres y coincidir.').catch(next);
+  }
+
+  try {
+    const filas = await consulta(
+      'SELECT password_hash FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
+      [req.user.id],
+    );
+    if (!filas[0] || !(await bcrypt.compare(claveActual, filas[0].password_hash))) {
+      return await mostrarCuenta(res, req.user.id, 'La contraseña actual no es correcta.');
     }
     const passwordHash = await bcrypt.hash(claveNueva, 12);
     await consulta('UPDATE usuarios SET password_hash = $1 WHERE id = $2 AND activo IS TRUE', [passwordHash, req.user.id]);
@@ -33,8 +89,8 @@ router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (req, res, next)
     await new Promise((resolve, reject) => req.session.regenerate((error) => error ? reject(error) : resolve()));
     req.session.userId = req.user.id;
     req.session.csrfToken = crearTokenCsrf();
-    req.session.flash = 'Contrasena actualizada.';
-    return req.session.save((error) => error ? next(error) : res.redirect('/'));
+    req.session.flash = 'Contraseña actualizada.';
+    return req.session.save((error) => error ? next(error) : res.redirect('/cuenta'));
   } catch (error) {
     return next(error);
   }

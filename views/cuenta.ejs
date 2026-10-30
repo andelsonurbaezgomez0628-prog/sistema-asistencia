@@ -18,23 +18,63 @@
       </div>
       <a class="btn cuenta-boton-panel" href="/">Panel</a>
     </header>
+    <% if (flash) { %><div class="alert alert-success" role="status"><%= flash %></div><% } %>
     <% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
-    <section class="card cuenta-card">
-      <header class="card-header cuenta-card-header">
-        <div>
-          <h2 class="h5 mb-1">Cambiar contraseña</h2>
-          <p class="text-secondary small mb-0">Confirma tu contraseña actual y elige una nueva.</p>
-        </div>
-        <span class="cuenta-seguridad-icono" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></svg></span>
-      </header>
-      <form class="cuenta-formulario" method="post" action="/cuenta/clave" autocomplete="off">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div class="mb-3"><label class="form-label" for="clave_actual">Contraseña actual</label><input class="form-control" id="clave_actual" name="clave_actual" type="password" autocomplete="current-password" maxlength="200" required></div>
-        <div class="mb-3"><label class="form-label" for="clave_nueva">Nueva contraseña</label><input class="form-control" id="clave_nueva" name="clave_nueva" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
-        <div class="mb-4"><label class="form-label" for="confirmar_clave">Confirmar nueva contraseña</label><input class="form-control" id="confirmar_clave" name="confirmar_clave" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
-        <button class="btn btn-primary cuenta-boton-guardar" type="submit">Actualizar contraseña</button>
-      </form>
-    </section>
+    <div class="cuenta-layout">
+      <div class="cuenta-paneles">
+        <section class="card cuenta-card">
+          <header class="card-header cuenta-card-header">
+            <div>
+              <h2 class="h5 mb-1">Datos personales</h2>
+              <p class="text-secondary small mb-0">Actualiza tu nombre, cédula y usuario de acceso.</p>
+            </div>
+            <span class="cuenta-seguridad-icono" aria-hidden="true"><img src="/icons/profesor.png" alt=""></span>
+          </header>
+          <form class="cuenta-formulario" method="post" action="/cuenta/perfil" autocomplete="off">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="cuenta-campos-perfil">
+              <div class="cuenta-campo-nombre"><label class="form-label" for="nombre">Nombre completo</label><input class="form-control" id="nombre" name="nombre" maxlength="120" value="<%= valoresPerfil ? valoresPerfil.nombre : cuentaActual.nombre %>" required></div>
+              <div><label class="form-label" for="cedula">Cédula</label><input class="form-control" id="cedula" name="cedula" inputmode="numeric" pattern="[0-9]{7,8}" maxlength="8" value="<%= valoresPerfil ? valoresPerfil.cedula : cuentaActual.cedula %>" required></div>
+              <div><label class="form-label" for="usuario">Usuario de acceso</label><input class="form-control" id="usuario" name="usuario" pattern="[a-zA-Z0-9._-]{3,50}" maxlength="50" value="<%= valoresPerfil ? valoresPerfil.usuario : cuentaActual.usuario %>" required></div>
+              <div class="cuenta-campo-nombre"><label class="form-label" for="clave_actual_perfil">Confirma con tu contraseña actual</label><input class="form-control" id="clave_actual_perfil" name="clave_actual_perfil" type="password" autocomplete="current-password" maxlength="200" required></div>
+            </div>
+            <button class="btn btn-primary cuenta-boton-guardar" type="submit">Guardar datos personales</button>
+          </form>
+        </section>
+
+        <section class="card cuenta-card">
+          <header class="card-header cuenta-card-header">
+            <div>
+              <h2 class="h5 mb-1">Cambiar contraseña</h2>
+              <p class="text-secondary small mb-0">Elige una contraseña nueva para tu cuenta.</p>
+            </div>
+            <span class="cuenta-seguridad-icono" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></svg></span>
+          </header>
+          <form class="cuenta-formulario" method="post" action="/cuenta/clave" autocomplete="off">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="mb-3"><label class="form-label" for="clave_actual">Contraseña actual</label><input class="form-control" id="clave_actual" name="clave_actual" type="password" autocomplete="current-password" maxlength="200" required></div>
+            <div class="mb-3"><label class="form-label" for="clave_nueva">Nueva contraseña</label><input class="form-control" id="clave_nueva" name="clave_nueva" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
+            <div class="mb-4"><label class="form-label" for="confirmar_clave">Confirmar nueva contraseña</label><input class="form-control" id="confirmar_clave" name="confirmar_clave" type="password" autocomplete="new-password" minlength="4" maxlength="200" required></div>
+            <button class="btn btn-primary cuenta-boton-guardar" type="submit">Actualizar contraseña</button>
+          </form>
+        </section>
+      </div>
+
+      <aside class="card cuenta-resumen" aria-labelledby="cuenta-resumen-titulo">
+        <header class="cuenta-resumen-cabecera">
+          <span class="cuenta-resumen-avatar"><img src="/icons/profesor.png" alt="" aria-hidden="true"></span>
+          <div><p class="mb-1">Cuenta actual</p><h2 id="cuenta-resumen-titulo"><%= cuentaActual.nombre %></h2></div>
+        </header>
+        <dl class="cuenta-resumen-datos">
+          <div><dt>Usuario</dt><dd><%= cuentaActual.usuario %></dd></div>
+          <div><dt>Cédula</dt><dd><%= cuentaActual.cedula %></dd></div>
+          <div><dt>Tipo de cuenta</dt><dd><%= cuentaActual.rol === 'admin' ? 'Administrador' : 'Docente' %></dd></div>
+          <div><dt>Identificador</dt><dd>#<%= cuentaActual.id %></dd></div>
+          <div><dt>Estado</dt><dd><span class="cuenta-estado-activa"><span aria-hidden="true">✓</span> Activa</span></dd></div>
+        </dl>
+        <p class="cuenta-resumen-nota mb-0">El tipo y el estado de la cuenta los administra la coordinación.</p>
+      </aside>
+    </div>
   </main>
 </body>
 </html>

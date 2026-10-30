@@ -118,3 +118,24 @@ test('la barra superior muestra el rol del usuario', async () => {
   assert.match(html, /navbar-user-role/);
   assert.match(html, />Docente<\/span>/);
 });
+
+test('cuenta permite editar datos personales y presenta el resumen de la cuenta actual', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/cuenta.ejs', import.meta.url)), {
+    error: null,
+    flash: null,
+    csrfToken: 'token-demo',
+    cuentaActual: { id: 8, nombre: 'María Prueba', cedula: '12345678', usuario: 'maria.prueba', rol: 'docente', activo: true },
+    valoresPerfil: null,
+    usuario: { id: 8, nombre: 'María Prueba', rol: 'docente' },
+    rutaActual: '/cuenta',
+  });
+  assert.match(html, /action="\/cuenta\/perfil"/);
+  assert.match(html, /name="nombre"/);
+  assert.match(html, /name="cedula"/);
+  assert.match(html, /name="usuario"/);
+  assert.match(html, /name="clave_actual_perfil"/);
+  assert.match(html, /Cuenta actual/);
+  assert.match(html, /maria\.prueba/);
+  assert.match(html, /Administrador|Docente/);
+  assert.match(html, /action="\/cuenta\/clave"/);
+});
