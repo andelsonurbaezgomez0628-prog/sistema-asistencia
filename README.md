@@ -131,6 +131,7 @@ resultado y mejora, sin capturar datos personales innecesarios.
 
 ## Documentacion
 
+- [Documentacion completa del proyecto](docs/documentacion-completa.md)
 - [Instalacion local](docs/instalacion-local.md)
 - [Modelo de datos](docs/base-de-datos.md)
 - [Manual de usuario](docs/manual-usuario.md)

@@ -1,6 +1,23 @@
 // Pestanas y filtros de la pagina de gestion academica.
 const CLAVE_PESTANA = 'gestion-pestana-activa';
 const botonesPestana = Array.from(document.querySelectorAll('[data-gestion-tab]'));
+const selectorDocentes = document.querySelector('.gestion-docentes-dropdown');
+
+if (selectorDocentes) {
+  const resumenDocentes = selectorDocentes.querySelector('[data-docentes-resumen]');
+  const casillasDocentes = Array.from(selectorDocentes.querySelectorAll('input[name="docente_ids"]'));
+
+  function actualizarResumenDocentes() {
+    const cantidad = casillasDocentes.filter((casilla) => casilla.checked).length;
+    if (!resumenDocentes) return;
+    resumenDocentes.textContent = cantidad === 0
+      ? 'Seleccionar docentes'
+      : `${cantidad} docente${cantidad === 1 ? '' : 's'} seleccionado${cantidad === 1 ? '' : 's'}`;
+  }
+
+  casillasDocentes.forEach((casilla) => casilla.addEventListener('change', actualizarResumenDocentes));
+  actualizarResumenDocentes();
+}
 
 if (botonesPestana.length > 0) {
   // La clase permite ocultar paneles solo cuando JavaScript esta disponible.

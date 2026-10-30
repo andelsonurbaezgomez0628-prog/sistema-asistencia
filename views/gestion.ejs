@@ -153,15 +153,19 @@
               </div>
               <fieldset class="col-sm-6 col-lg-3">
                 <legend class="form-label mb-1">Docentes</legend>
-                <div class="gestion-docentes-seleccion">
-                  <% for (const docente of docentes.filter((item) => item.activo)) { %>
-                    <label class="form-check gestion-docente-opcion">
-                      <input class="form-check-input" type="checkbox" name="docente_ids" value="<%= docente.id %>">
-                      <span class="form-check-label"><%= docente.nombre %></span>
-                    </label>
-                  <% } %>
-                </div>
-                <div class="form-text">Selecciona uno o varios.</div>
+                <details class="gestion-docentes-dropdown">
+                  <summary class="gestion-docentes-disparador"><span data-docentes-resumen>Seleccionar docentes</span></summary>
+                  <div class="gestion-docentes-menu">
+                    <div class="gestion-docentes-seleccion">
+                      <% for (const docente of docentes.filter((item) => item.activo)) { %>
+                        <label class="form-check gestion-docente-opcion">
+                          <input class="form-check-input" type="checkbox" name="docente_ids" value="<%= docente.id %>">
+                          <span class="form-check-label"><%= docente.nombre %></span>
+                        </label>
+                      <% } %>
+                    </div>
+                  </div>
+                </details>
               </fieldset>
               <div class="col-sm-6 col-lg-2">
                 <label class="form-label" for="seccion-anio">Ano escolar</label>
