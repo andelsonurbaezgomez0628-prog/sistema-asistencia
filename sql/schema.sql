@@ -18,6 +18,8 @@ CREATE TABLE usuarios (
   usuario VARCHAR(50) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   rol VARCHAR(10) NOT NULL DEFAULT 'docente' CHECK (rol IN ('admin', 'docente')),
+  foto_data BYTEA,
+  foto_tipo VARCHAR(30),
   activo BOOLEAN NOT NULL DEFAULT TRUE,
   creado_el TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -51,6 +53,8 @@ CREATE TABLE estudiantes (
   nombre VARCHAR(80) NOT NULL,
   apellido VARCHAR(80) NOT NULL,
   fecha_nacimiento DATE,
+  foto_data BYTEA,
+  foto_tipo VARCHAR(30),
   seccion_id INTEGER NOT NULL REFERENCES secciones(id),
   activo BOOLEAN NOT NULL DEFAULT TRUE,
   creado_el TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

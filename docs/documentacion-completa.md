@@ -253,6 +253,7 @@ Migraciones incluidas:
 
 - `sql/migracion_numero_lista.sql`: adapta la estructura anterior del estudiante a numero de lista.
 - `sql/migracion_docentes_seccion.sql`: preserva asignaciones existentes y migra la relacion para admitir varios docentes.
+- `sql/migracion_fotos.sql`: agrega almacenamiento de fotos opcionales para usuarios y estudiantes.
 - `sql/datos_demo.sql`: datos ficticios del escenario demostrativo.
 
 La reinstalacion forzada elimina tablas. Solo debe ejecutarse tras hacer un respaldo y confirmar expresamente:

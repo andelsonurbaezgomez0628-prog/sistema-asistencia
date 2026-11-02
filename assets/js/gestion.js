@@ -94,16 +94,17 @@ document.querySelectorAll('[data-filtrar-tabla]').forEach((entrada) => {
   const mensajeVacio = tabla.querySelector('[data-filtro-vacio]');
 
   function filtrarFilas() {
-    const busqueda = normalizarTexto(entrada.value.trim());
+    const terminos = normalizarTexto(entrada.value).split(/\s+/).filter(Boolean);
     let visibles = 0;
 
     filas.forEach((fila) => {
-      const coincide = busqueda === '' || normalizarTexto(fila.textContent).includes(busqueda);
+      const textoFila = normalizarTexto(fila.textContent);
+      const coincide = terminos.length === 0 || terminos.every((termino) => textoFila.includes(termino));
       fila.hidden = !coincide;
       if (coincide) visibles += 1;
     });
 
-    if (mensajeVacio) mensajeVacio.hidden = busqueda === '' || visibles > 0;
+    if (mensajeVacio) mensajeVacio.hidden = terminos.length === 0 || visibles > 0;
   }
 
   entrada.addEventListener('input', filtrarFilas);

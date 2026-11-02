@@ -1,9 +1,12 @@
-<header class="app-navbar navbar navbar-dark">
+<header class="app-navbar">
   <div class="container">
     <div class="navbar-top">
       <a class="navbar-brand" href="/">
-        <img class="brand-icon" src="/icons/estudio.png" alt="" aria-hidden="true">
-        <span>Asistencia Escolar</span>
+        <span class="brand-mark" aria-hidden="true"><img src="/icons/Emblema%20tecnol%C3%B3gico%20de%20IA%20y%20verificaci%C3%B3n.png" alt=""></span>
+        <span class="brand-copy">
+          <span class="brand-name">Asistencia</span>
+          <span class="brand-sub">Escolar Inteligente</span>
+        </span>
       </a>
       <button class="nav-toggle" type="button" data-nav-toggle aria-controls="primaryMenu" aria-expanded="false" aria-label="Abrir menu">
         <span class="menu-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -11,14 +14,14 @@
     </div>
     <div class="nav-collapse" id="primaryMenu">
       <nav class="primary-nav" aria-label="Navegacion principal">
-        <a class="nav-item-icon <%= rutaActual === '/asistencia' ? 'active' : '' %>" href="/asistencia" <%= rutaActual === '/asistencia' ? 'aria-current="page"' : '' %>><img class="nav-icon" src="/icons/lista-de-verificacion.png" alt="" aria-hidden="true"><span>Asistencia</span></a>
-        <a class="nav-item-icon <%= rutaActual.startsWith('/alertas') ? 'active' : '' %>" href="/alertas" <%= rutaActual.startsWith('/alertas') ? 'aria-current="page"' : '' %>><img class="nav-icon" src="/icons/alerta.png" alt="" aria-hidden="true"><span>Alertas</span></a>
-        <a class="nav-item-icon <%= rutaActual === '/reportes' ? 'active' : '' %>" href="/reportes" <%= rutaActual === '/reportes' ? 'aria-current="page"' : '' %>><img class="nav-icon" src="/icons/reporte-de-negocios.png" alt="" aria-hidden="true"><span>Reportes</span></a>
-        <% if (usuario.rol === 'admin') { %><a class="nav-item-icon <%= rutaActual.startsWith('/gestion') ? 'active' : '' %>" href="/gestion" <%= rutaActual.startsWith('/gestion') ? 'aria-current="page"' : '' %>><img class="nav-icon" src="/icons/secciones.png" alt="" aria-hidden="true"><span>Gestión</span></a><% } %>
+        <a class="nav-item-icon <%= rutaActual === '/asistencia' ? 'active' : '' %>" href="/asistencia" <%= rutaActual === '/asistencia' ? 'aria-current="page"' : '' %>><%- include('icono', { nombre: 'asistencia' }) %><span>Asistencia</span></a>
+        <a class="nav-item-icon <%= rutaActual.startsWith('/alertas') ? 'active' : '' %>" href="/alertas" <%= rutaActual.startsWith('/alertas') ? 'aria-current="page"' : '' %>><%- include('icono', { nombre: 'alertas' }) %><span>Alertas</span></a>
+        <a class="nav-item-icon <%= rutaActual === '/reportes' ? 'active' : '' %>" href="/reportes" <%= rutaActual === '/reportes' ? 'aria-current="page"' : '' %>><%- include('icono', { nombre: 'reportes' }) %><span>Reportes</span></a>
+        <% if (usuario.rol === 'admin') { %><a class="nav-item-icon <%= rutaActual.startsWith('/gestion') ? 'active' : '' %>" href="/gestion" <%= rutaActual.startsWith('/gestion') ? 'aria-current="page"' : '' %>><%- include('icono', { nombre: 'gestion' }) %><span>Gestión</span></a><% } %>
       </nav>
       <div class="navbar-account">
         <a class="navbar-user navbar-user-link <%= rutaActual === '/cuenta' ? 'active' : '' %>" href="/cuenta" title="Abrir el perfil de <%= usuario.nombre %>" aria-label="Abrir el perfil de <%= usuario.nombre %>" <%= rutaActual === '/cuenta' ? 'aria-current="page"' : '' %>>
-          <img class="nav-icon" src="/icons/profesor.png" alt="" aria-hidden="true">
+          <span class="navbar-avatar" aria-hidden="true"><% if (usuario.tiene_foto) { %><img src="/fotos/usuarios/<%= usuario.id %>" alt=""><% } else { %><%- include('icono', { nombre: 'cuenta' }) %><% } %></span>
           <span class="navbar-user-details">
             <span class="navbar-user-name"><%= usuario.nombre %></span>
             <span class="navbar-user-role"><%= usuario.rol === 'admin' ? 'Administrador' : 'Docente' %></span>
@@ -26,10 +29,40 @@
         </a>
         <form method="post" action="/logout">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-outline-light btn-sm nav-logout" type="submit">Salir</button>
+          <button class="btn nav-logout" type="submit">Salir <%- include('icono', { nombre: 'salir' }) %></button>
         </form>
       </div>
     </div>
   </div>
   <script src="/js/nav.js" defer></script>
+  <script src="/js/busqueda-estudiantes.js" defer></script>
 </header>
+<div class="busqueda-global-contenedor">
+  <div class="container busqueda-global-alineacion">
+    <form class="busqueda-global" data-busqueda-global-form role="search">
+      <div class="busqueda-global-campo" data-busqueda-global-campo aria-hidden="true">
+        <label class="visually-hidden" for="busqueda-global-estudiantes">Buscar estudiantes</label>
+        <input id="busqueda-global-estudiantes" type="search" placeholder="Nombre, número, curso o sección" autocomplete="off" data-busqueda-global>
+        <span class="busqueda-global-resultados" data-busqueda-global-resultados aria-live="polite"></span>
+      </div>
+      <button class="busqueda-global-boton" type="button" aria-expanded="false" aria-controls="busqueda-global-estudiantes" aria-label="Abrir búsqueda de estudiantes" data-busqueda-global-toggle><%- include('icono', { nombre: 'buscar' }) %></button>
+    </form>
+    <p class="busqueda-global-vacio" data-busqueda-global-vacio hidden>No se encontraron estudiantes en esta sección.</p>
+  </div>
+</div>
+<nav class="mobile-bottom-nav" aria-label="Navegacion movil">
+  <a class="mobile-nav-item <%= rutaActual === '/asistencia' ? 'active' : '' %>" href="/asistencia" <%= rutaActual === '/asistencia' ? 'aria-current="page"' : '' %>>
+    <%- include('icono', { nombre: 'asistencia' }) %><span>Asistencia</span>
+  </a>
+  <a class="mobile-nav-item <%= rutaActual.startsWith('/alertas') ? 'active' : '' %>" href="/alertas" <%= rutaActual.startsWith('/alertas') ? 'aria-current="page"' : '' %>>
+    <%- include('icono', { nombre: 'alertas' }) %><span>Alertas</span>
+  </a>
+  <a class="mobile-nav-item <%= rutaActual === '/reportes' ? 'active' : '' %>" href="/reportes" <%= rutaActual === '/reportes' ? 'aria-current="page"' : '' %>>
+    <%- include('icono', { nombre: 'reportes' }) %><span>Reportes</span>
+  </a>
+  <% if (usuario.rol === 'admin') { %>
+    <a class="mobile-nav-item <%= rutaActual.startsWith('/gestion') ? 'active' : '' %>" href="/gestion" <%= rutaActual.startsWith('/gestion') ? 'aria-current="page"' : '' %>>
+      <%- include('icono', { nombre: 'gestion' }) %><span>Gestión</span>
+    </a>
+  <% } %>
+</nav>

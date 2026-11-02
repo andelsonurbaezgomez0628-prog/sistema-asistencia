@@ -1,20 +1,16 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Error | Asistencia Escolar</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="/css/estilos.css" rel="stylesheet">
+  <%- include('partials/head', { titulo: 'Error | Asistencia Escolar' }) %>
 </head>
 <body class="error-page">
   <main class="container error-shell">
     <section class="card error-card">
-      <span class="error-icono" aria-hidden="true">!</span>
-      <p class="dashboard-kicker mb-1">Solicitud no completada</p>
-      <h1 class="h3 mb-2">No se pudo completar la solicitud</h1>
+      <span class="error-icono" aria-hidden="true"><%- include('partials/icono', { nombre: 'alerta' }) %></span>
+      <p class="page-kicker mb-2">Solicitud no completada</p>
+      <h1 class="mb-2">No se pudo completar la solicitud</h1>
       <p class="text-secondary mb-4"><%= mensaje %></p>
-      <a class="btn btn-primary" href="/">Volver al panel</a>
+      <a class="btn btn-primary" href="/"><%- include('partials/icono', { nombre: 'panel' }) %>Volver al panel</a>
     </section>
   </main>
 </body>

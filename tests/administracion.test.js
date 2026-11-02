@@ -26,6 +26,20 @@ test('asistencia, alertas y reportes autorizan por asignacion de seccion', async
   assert.match(servidor, /seccion_docentes/);
   assert.doesNotMatch(seguimiento, /s\.docente_id/);
   assert.doesNotMatch(servidor, /s\.docente_id/);
+  assert.match(seguimiento, /SELECT s\.id, s\.nombre, s\.curso_id, c\.nombre AS curso/);
+});
+
+test('el detalle de reportes limita al estudiante por permisos y consulta su historial', async () => {
+  const seguimiento = await readFile(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
+  const inicio = seguimiento.indexOf("router.get('/reportes/estudiantes/:id'");
+  const fin = seguimiento.indexOf("router.get('/reportes'", inicio);
+  const ruta = seguimiento.slice(inicio, fin);
+  assert.match(ruta, /router\.get\('\/reportes\/estudiantes\/:id', requerirLogin/);
+  assert.match(ruta, /validarId\(req\.params\.id\)/);
+  assert.match(ruta, /sd\.docente_id = \$2/);
+  assert.match(ruta, /const valoresEstudiante = \[idEstudiante\]/);
+  assert.match(ruta, /WHERE estudiante_id = \$1 AND fecha BETWEEN \$2 AND \$3/);
+  assert.match(ruta, /no tienes acceso/);
 });
 
 test('el perfil solo modifica datos de la cuenta autenticada y protege el cambio con CSRF', async () => {

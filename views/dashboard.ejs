@@ -1,42 +1,80 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Panel | Asistencia Escolar</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="/css/estilos.css" rel="stylesheet">
+  <%- include('partials/head', { titulo: 'Panel | Asistencia Escolar' }) %>
 </head>
 <body class="dashboard-page">
   <%- include('partials/nav') %>
-  <main class="container py-4">
-    <div class="dashboard-heading">
-      <div>
-        <p class="dashboard-kicker">Vista general</p>
-        <h1 class="h3 mb-1 page-heading"><span class="dashboard-page-icon"><img class="page-icon" src="/icons/panel.png" alt="" aria-hidden="true"></span>Panel de seguimiento</h1>
-        <p class="dashboard-subtitle mb-0">Un resumen claro para acompañar el progreso escolar.</p>
+  <main class="container">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <p class="hero-kicker"><%= usuario.rol === 'admin' ? 'Vista de coordinación' : 'Vista docente' %></p>
+        <h1 class="hero-title">Hola, <%= usuario.nombre.split(' ')[0] %></h1>
+        <p class="hero-text"><%= usuario.rol === 'admin' ? 'Todo el centro en una sola vista: cursos, secciones, docentes y las alertas que necesitan atención.' : 'Tus secciones y estudiantes, con las alertas que conviene revisar durante la jornada.' %></p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/asistencia"><%- include('partials/icono', { nombre: 'asistencia' }) %>Registrar asistencia</a>
+          <a class="btn btn-ghost" href="/alertas"><%- include('partials/icono', { nombre: 'alertas' }) %>Revisar alertas</a>
+          <a class="btn btn-ghost" href="/reportes"><%- include('partials/icono', { nombre: 'reportes' }) %>Ver reportes</a>
+          <% if (usuario.rol === 'admin') { %><a class="btn btn-ghost" href="/gestion"><img class="btn-imagen" src="/icons/agregar-usuario.png" alt="" width="22" height="22">Gestionar</a><% } %>
+        </div>
       </div>
-      <span class="dashboard-role"><%= usuario.rol === 'admin' ? 'Coordinacion' : 'Docente' %></span>
-    </div>
-    <% const etiquetas = { cursos: 'Cursos', secciones: 'Secciones', docentes: 'Docentes', estudiantes: 'Estudiantes activos', alertas: 'Alertas pendientes' }; %>
-    <% const iconos = { cursos: 'estudio.png', secciones: 'secciones.png', docentes: 'profesor.png', estudiantes: 'agregar-usuario.png', alertas: 'alerta.png' }; %>
-    <section class="dashboard-metrics" aria-label="Resumen">
+      <div class="hero-art" aria-hidden="true">
+        <span class="hero-chip hero-chip-1"><%- include('partials/icono', { nombre: 'reportes' }) %></span>
+        <span class="hero-chip hero-chip-2"><%- include('partials/icono', { nombre: 'check' }) %></span>
+        <span class="hero-chip hero-chip-3"><%- include('partials/icono', { nombre: 'alertas' }) %></span>
+      </div>
+    </section>
+
+    <%
+      const etiquetas = { cursos: 'Cursos', secciones: 'Secciones', docentes: 'Docentes activos', estudiantes: 'Estudiantes activos', alertas: 'Alertas pendientes' };
+      const pistas = { cursos: 'Oferta académica', secciones: 'Grupos del centro', docentes: 'Equipo docente', estudiantes: 'En las aulas', alertas: 'Requieren seguimiento' };
+      const iconos = { cursos: 'curso', secciones: 'seccion', docentes: 'docente', estudiantes: 'estudiante', alertas: 'alertas' };
+      const imagenes = { secciones: 'secciones.png', docentes: 'profesor.png', estudiantes: 'estudio.png', alertas: 'alerta.png' };
+    %>
+    <section class="metrics-grid" aria-label="Resumen del centro">
       <% for (const [clave, valor] of Object.entries(resumen)) { %>
-        <article class="dashboard-metric dashboard-metric-<%= clave %> <%= clave === 'alertas' && Number(valor) > 0 ? 'metric-alerts' : '' %>">
-          <div class="dashboard-metric-top">
-            <h2><%= etiquetas[clave] || clave %></h2>
-            <% if (iconos[clave]) { %><span class="dashboard-metric-icon"><img src="/icons/<%= iconos[clave] %>" alt="" aria-hidden="true"></span><% } %>
+        <article class="metric-card metric-<%= clave %> <%= clave === 'alertas' && Number(valor) > 0 ? 'is-alert' : '' %>">
+          <div class="metric-head">
+            <span class="metric-icon" aria-hidden="true"><% if (imagenes[clave]) { %><img src="/icons/<%= imagenes[clave] %>" alt="" width="34" height="34"><% } else { %><%- include('partials/icono', { nombre: iconos[clave] || 'panel' }) %><% } %></span>
+            <p class="metric-label"><%= etiquetas[clave] || clave %></p>
           </div>
-          <p><%= valor %></p>
+          <p class="metric-value"><%= valor %></p>
+          <p class="metric-hint"><%= pistas[clave] || 'Resumen del sistema' %></p>
         </article>
       <% } %>
     </section>
-    <nav class="dashboard-actions" aria-label="Acciones principales">
-      <a class="btn btn-primary" href="/asistencia"><img src="/icons/lista-de-verificacion.png" alt="" aria-hidden="true">Registrar asistencia</a>
-      <a class="btn btn-outline-primary" href="/alertas"><img src="/icons/alerta.png" alt="" aria-hidden="true">Revisar alertas</a>
-      <a class="btn btn-outline-primary" href="/reportes"><img src="/icons/reporte-de-negocios.png" alt="" aria-hidden="true">Abrir reportes</a>
-      <% if (usuario.rol === 'admin') { %><a class="btn btn-outline-primary" href="/gestion"><img src="/icons/secciones.png" alt="" aria-hidden="true">Gestionar datos</a><% } %>
-    </nav>
+
+    <section class="flujo-panel" aria-label="Ruta de trabajo sugerida">
+      <p class="flujo-titulo"><%- include('partials/icono', { nombre: 'tendencia' }) %>Ruta de trabajo</p>
+      <div class="flujo-pasos">
+        <a class="flujo-paso" href="/asistencia">
+          <span class="flujo-numero">1</span>
+          <span class="flujo-ilustracion" aria-hidden="true"><img src="/icons/lista-de-verificacion.png" alt="" width="42" height="42"></span>
+          <div>
+            <h3>Registra la asistencia</h3>
+            <p>Marca presentes, ausentes, tardanzas y justificados del día.</p>
+          </div>
+        </a>
+        <a class="flujo-paso" href="/alertas">
+          <span class="flujo-numero">2</span>
+          <span class="flujo-ilustracion" aria-hidden="true"><img src="/icons/alerta.png" alt="" width="42" height="42"></span>
+          <div>
+            <h3>Revisa las alertas</h3>
+            <p>Detecta inasistencias recurrentes y su explicación.</p>
+          </div>
+        </a>
+        <a class="flujo-paso" href="/reportes">
+          <span class="flujo-numero">3</span>
+          <span class="flujo-ilustracion" aria-hidden="true"><img src="/icons/reporte-de-negocios.png" alt="" width="42" height="42"></span>
+          <div>
+            <h3>Comparte los reportes</h3>
+            <p>Filtra por curso, sección y fecha para dar seguimiento.</p>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <p class="dashboard-note"><%- include('partials/icono', { nombre: 'info' }) %><span>Las alertas se recalculan cada vez que guardas la asistencia del día.</span></p>
   </main>
 </body>
 </html>

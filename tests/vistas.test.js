@@ -11,6 +11,7 @@ const vistas = [
   'views/asistencia.ejs',
   'views/alertas.ejs',
   'views/reportes.ejs',
+  'views/reporte-estudiante.ejs',
   'views/gestion.ejs',
   'views/editar.ejs',
   'views/cuenta.ejs',
@@ -40,6 +41,24 @@ test('reportes incluye barra de porcentaje y graficos de pastel y barras', async
   assert.match(plantilla, /class="grafico-dona"/);
   assert.match(plantilla, /class="grafico-barras"/);
   assert.doesNotMatch(plantilla, /style="/);
+  assert.match(plantilla, /data-exportacion-general/);
+  assert.match(plantilla, /data-fila-exportacion/);
+  assert.match(plantilla, /data-exportar="excel">Excel/);
+});
+
+test('detalle de estudiante renderiza historial y datos de navegacion', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/reporte-estudiante.ejs', import.meta.url)), {
+    estudiante: { nombre: 'Estudiante', apellido: 'Demo', numero_lista: 1, curso: 'Curso', seccion: 'A' },
+    historial: [{ fecha: '2026-11-01', estado: 'presente', observacion: null }],
+    desde: '2026-10-01', hasta: '2026-11-02', hoy: '2026-11-02',
+    usuario: { id: 1, nombre: 'Docente', rol: 'docente' }, rutaActual: '/reportes/estudiantes/1', csrfToken: 'token-demo', flash: null,
+  });
+  assert.match(html, /Historial de asistencia/);
+  assert.match(html, /Presente/);
+  assert.match(html, /Volver a reportes/);
+  assert.match(html, /Exportar PDF/);
+  assert.match(html, /Exportar Excel/);
+  assert.match(html, /Exportar Word/);
 });
 
 test('gestion renderiza la pestana para crear administradores', async () => {

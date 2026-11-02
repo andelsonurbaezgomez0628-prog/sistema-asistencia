@@ -111,7 +111,7 @@ router.get('/', async (req, res, next) => {
          ORDER BY c.nombre, s.nombre`,
       ),
       consulta(
-        `SELECT e.id, e.numero_lista, e.nombre, e.apellido, e.fecha_nacimiento, e.seccion_id, e.activo,
+        `SELECT e.id, e.numero_lista, e.nombre, e.apellido, e.fecha_nacimiento, e.seccion_id, e.activo, e.foto_data IS NOT NULL AS tiene_foto,
           s.nombre AS seccion, c.nombre AS curso
          FROM estudiantes e INNER JOIN secciones s ON s.id = e.seccion_id
          INNER JOIN cursos c ON c.id = s.curso_id ORDER BY e.apellido, e.nombre`,
@@ -137,9 +137,9 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
   // Cada tipo tiene una consulta fija; el nombre del tipo nunca se inserta en SQL.
   const consultaPorTipo = {
     seccion: 'SELECT id, nombre, curso_id, anio_escolar FROM secciones WHERE id = $1',
-    estudiante: 'SELECT id, numero_lista, nombre, apellido, fecha_nacimiento, seccion_id, activo FROM estudiantes WHERE id = $1',
-    docente: "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'docente'",
-    administrador: "SELECT id, nombre, cedula, usuario, activo FROM usuarios WHERE id = $1 AND rol = 'admin'",
+    estudiante: 'SELECT id, numero_lista, nombre, apellido, fecha_nacimiento, seccion_id, activo, foto_data IS NOT NULL AS tiene_foto FROM estudiantes WHERE id = $1',
+    docente: "SELECT id, nombre, cedula, usuario, activo, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND rol = 'docente'",
+    administrador: "SELECT id, nombre, cedula, usuario, activo, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND rol = 'admin'",
   };
   if (!id || !consultaPorTipo[tipo]) {
     return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });

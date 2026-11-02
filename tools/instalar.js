@@ -107,6 +107,7 @@ try {
   // Aplicar cambios compatibles y asegurar que la tabla de sesiones exista.
   await migrarNumeroLista();
   await migrarDocentesSeccion();
+  await ejecutarArchivo('migracion_fotos.sql');
   await ejecutarArchivo('sesiones.sql');
   if (forzar) await pool.query('DELETE FROM sesiones');
 

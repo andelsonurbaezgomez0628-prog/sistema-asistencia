@@ -8,11 +8,81 @@ const router = Router();
 const estadosPermitidos = new Set(['presente', 'tardanza', 'ausente', 'justificado']);
 const nivelesPermitidos = new Set(['bajo', 'medio', 'alto']);
 const estadosAlertaPermitidos = new Set(['pendiente', 'atendida']);
+const formatosFotoPermitidos = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+function decodificarFoto(dataUrl) {
+  if (typeof dataUrl !== 'string' || dataUrl.length > 245000) return null;
+  const coincidencia = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+  if (!coincidencia || !formatosFotoPermitidos.has(coincidencia[1])) return null;
+  const datos = Buffer.from(coincidencia[2], 'base64');
+  if (datos.length > 180000) return null;
+  const esJpeg = datos[0] === 0xff && datos[1] === 0xd8 && datos[2] === 0xff;
+  const esPng = datos.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  const esWebp = datos.toString('ascii', 0, 4) === 'RIFF' && datos.toString('ascii', 8, 12) === 'WEBP';
+  if (!(coincidencia[1] === 'image/jpeg' && esJpeg)
+    && !(coincidencia[1] === 'image/png' && esPng)
+    && !(coincidencia[1] === 'image/webp' && esWebp)) return null;
+  return { datos, tipo: coincidencia[1] };
+}
+
+router.get('/fotos/estudiantes/:id', requerirLogin, async (req, res, next) => {
+  const id = validarId(req.params.id);
+  if (!id) return res.sendStatus(404);
+  try {
+    const permiso = req.user.rol === 'docente'
+      ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = e.seccion_id AND sd.docente_id = $2)'
+      : '';
+    const valores = req.user.rol === 'docente' ? [id, req.user.id] : [id];
+    const filas = await consulta(
+      `SELECT e.foto_data, e.foto_tipo FROM estudiantes e WHERE e.id = $1 AND e.activo IS TRUE ${permiso} LIMIT 1`, valores,
+    );
+    if (!filas[0]?.foto_data) return res.sendStatus(404);
+    res.set({ 'Content-Type': filas[0].foto_tipo, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
+    return res.send(filas[0].foto_data);
+  } catch (error) { return next(error); }
+});
+
+router.get('/fotos/usuarios/:id', requerirLogin, async (req, res, next) => {
+  const id = validarId(req.params.id);
+  if (!id || (req.user.rol !== 'admin' && Number(req.user.id) !== id)) return res.sendStatus(404);
+  try {
+    const filas = await consulta('SELECT foto_data, foto_tipo FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1', [id]);
+    if (!filas[0]?.foto_data) return res.sendStatus(404);
+    res.set({ 'Content-Type': filas[0].foto_tipo, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
+    return res.send(filas[0].foto_data);
+  } catch (error) { return next(error); }
+});
+
+router.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (req, res, next) => {
+  const id = validarId(req.params.id);
+  const { tipo } = req.params;
+  const foto = decodificarFoto(req.body?.foto);
+  if (!id || !foto || !['estudiante', 'usuario'].includes(tipo)) {
+    return res.status(400).json({ error: 'La imagen no es valida o supera el tamano permitido.' });
+  }
+  try {
+    if (tipo === 'estudiante') {
+      const acceso = await consulta(
+        `SELECT e.id FROM estudiantes e WHERE e.id = $1 AND e.activo IS TRUE
+         AND ($2::text = 'admin' OR EXISTS (
+           SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = e.seccion_id AND sd.docente_id = $3
+         )) LIMIT 1`, [id, req.user.rol, req.user.id],
+      );
+      if (!acceso.length) return res.status(404).json({ error: 'No se encontro el registro autorizado.' });
+      await consulta('UPDATE estudiantes SET foto_data = $1, foto_tipo = $2 WHERE id = $3', [foto.datos, foto.tipo, id]);
+    } else {
+      const puedeEditar = req.user.rol === 'admin' || Number(req.user.id) === id;
+      if (!puedeEditar) return res.status(403).json({ error: 'No tienes permiso para cambiar esa foto.' });
+      await consulta('UPDATE usuarios SET foto_data = $1, foto_tipo = $2 WHERE id = $3 AND activo IS TRUE', [foto.datos, foto.tipo, id]);
+    }
+    return res.json({ ok: true });
+  } catch (error) { return next(error); }
+});
 
 // Cuenta: el usuario solo puede consultar y modificar su propio perfil.
 async function buscarCuentaActual(id) {
   const filas = await consulta(
-    'SELECT id, nombre, cedula, usuario, rol, activo FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
+    'SELECT id, nombre, cedula, usuario, rol, activo, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
     [id],
   );
   return filas[0] || null;
@@ -110,7 +180,7 @@ async function seccionesDisponibles(usuario) {
     : '';
   const valores = usuario.rol === 'docente' ? [usuario.id] : [];
   return consulta(
-    `SELECT s.id, s.nombre, c.nombre AS curso
+    `SELECT s.id, s.nombre, s.curso_id, c.nombre AS curso
      FROM secciones s INNER JOIN cursos c ON c.id = s.curso_id
      ${filtroDocente} ORDER BY c.nombre, s.nombre`,
     valores,
@@ -186,7 +256,7 @@ router.get('/asistencia', requerirLogin, async (req, res, next) => {
     let estudiantes = [];
     if (idSeccion && fecha <= hoy) {
       estudiantes = await consulta(
-        `SELECT e.id, e.numero_lista, e.nombre, e.apellido, a.estado, a.observacion
+        `SELECT e.id, e.numero_lista, e.nombre, e.apellido, e.foto_data IS NOT NULL AS tiene_foto, a.estado, a.observacion
          FROM estudiantes e LEFT JOIN asistencia a ON a.estudiante_id = e.id AND a.fecha = $1
          WHERE e.seccion_id = $2 AND e.activo IS TRUE ORDER BY e.apellido, e.nombre`,
         [fecha, idSeccion],
@@ -310,7 +380,7 @@ router.get('/alertas', requerirLogin, async (req, res, next) => {
     const where = filtros.length ? `WHERE ${filtros.join(' AND ')}` : '';
     const alertas = await consulta(
       `SELECT a.id, a.nivel, a.faltas_30_dias, a.racha_maxima, a.mensaje,
-        a.fecha_deteccion, a.estado, e.nombre, e.apellido, e.numero_lista,
+        a.fecha_deteccion, a.estado, e.nombre, e.apellido, e.numero_lista, e.foto_data IS NOT NULL AS tiene_foto,
         s.nombre AS seccion, c.nombre AS curso
        FROM alertas a
        INNER JOIN estudiantes e ON e.id = a.estudiante_id
@@ -456,6 +526,36 @@ function resumirReportes(filas) {
   return { resumenRegistros, totalRegistros, asistenciaGeneral, resumenCursos };
 }
 
+router.get('/reportes/estudiantes/:id', requerirLogin, async (req, res, next) => {
+  const idEstudiante = validarId(req.params.id);
+  if (!idEstudiante) return res.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
+  try {
+    const { rows: [{ hoy, iniciodefecto: inicioDefecto }] } = await db.query(
+      'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto',
+    );
+    const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
+    const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
+    if (desde > hasta) return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
+    const valoresEstudiante = [idEstudiante];
+    const permisoDocente = req.user.rol === 'docente'
+      ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $2)'
+      : '';
+    if (req.user.rol === 'docente') valoresEstudiante.push(req.user.id);
+    const estudiante = await consulta(
+      `SELECT e.id, e.nombre, e.apellido, e.numero_lista, e.foto_data IS NOT NULL AS tiene_foto, s.nombre AS seccion, c.nombre AS curso
+       FROM estudiantes e INNER JOIN secciones s ON s.id = e.seccion_id
+       INNER JOIN cursos c ON c.id = s.curso_id
+       WHERE e.id = $1 AND e.activo IS TRUE ${permisoDocente} LIMIT 1`, valoresEstudiante,
+    );
+    if (!estudiante[0]) return res.status(404).render('error', { mensaje: 'El estudiante no existe o no tienes acceso.' });
+    const historial = await consulta(
+      `SELECT fecha, estado, observacion FROM asistencia
+       WHERE estudiante_id = $1 AND fecha BETWEEN $2 AND $3 ORDER BY fecha DESC`, [idEstudiante, desde, hasta],
+    );
+    return res.render('reporte-estudiante', { estudiante: estudiante[0], historial, desde, hasta, hoy });
+  } catch (error) { return next(error); }
+});
+
 router.get('/reportes', requerirLogin, async (req, res, next) => {
   try {
     // Usar fechas de PostgreSQL y limitar por defecto la consulta a los ultimos 30 dias.
@@ -502,7 +602,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
 
     const filas = await consulta(
       // Una fila por estudiante; los FILTER cuentan cada estado dentro del rango elegido.
-      `SELECT e.id, e.numero_lista, e.nombre, e.apellido, s.nombre AS seccion,
+      `SELECT e.id, e.numero_lista, e.nombre, e.apellido, e.foto_data IS NOT NULL AS tiene_foto, s.nombre AS seccion,
         c.id AS curso_id, c.nombre AS curso,
         COUNT(a.id) AS dias_registrados,
         COUNT(a.id) FILTER (WHERE a.estado IN ('presente', 'tardanza')) AS asistencias,

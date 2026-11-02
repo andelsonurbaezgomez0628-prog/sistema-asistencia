@@ -30,10 +30,22 @@ La regla pura esta en [src/alertas.js](src/alertas.js). Las consultas de seguimi
 - Configuracion general en `src/config.js`; secretos exclusivamente en `.env`.
 - Bootstrap 5 y CSS del proyecto.
 - Aplicacion Android con Capacitor que abre el sistema web desplegado.
+- Navegacion inferior tactil en telefonos para asistencia, alertas, reportes y gestion.
 
 Node escucha siempre en `0.0.0.0:$PORT` (por defecto `3000`) para que el proxy de Render pueda
 alcanzarla; la variable `HOST` se ignora a proposito. El runtime PHP anterior se retiro del
 proyecto; solo queda Node.js como servidor y `.htaccess` como bloqueo de respaldo.
+
+## Interfaz
+
+- Sistema visual "Cuaderno vivo": papel lavanda, tinta violeta y acentos menta, sol, coral, cielo
+  y rosa. Es colorido y juvenil, con contraste suficiente para lectura prolongada.
+- Tipografias Bricolage Grotesque (titulos) y Plus Jakarta Sans (texto), cargadas desde Google
+  Fonts. La CSP permite solo `fonts.googleapis.com` para CSS y `fonts.gstatic.com` para fuentes.
+- Metadatos, Bootstrap y el CSS del proyecto se incluyen con `views/partials/head.ejs`; los iconos
+  son SVG de linea reutilizables definidos en `views/partials/icono.ejs`.
+- No se usan estilos en linea ni scripts sin autorizacion. Los formularios y la logica de interfaz
+  conservan los mismos `name`, rutas y atributos `data-*` que ya probaba la suite.
 
 ## Configuracion e instalacion
 
@@ -100,6 +112,18 @@ npm run mobile:open
 
 En Android Studio, selecciona un emulador o dispositivo y ejecuta la app. El identificador Android
 es `com.sistema.asistencia`; no lo cambies despues de distribuir la aplicacion.
+
+Para generar un APK de demostracion desde Windows, sincroniza Capacitor y compila el modulo Android:
+
+```powershell
+npm run mobile:sync
+cd android
+.\gradlew.bat assembleDebug
+```
+
+El archivo queda en `android/app/build/outputs/apk/debug/app-debug.apk`. La navegacion inferior se
+muestra en telefonos; en el menu superior siguen disponibles la cuenta y el cierre de sesion. La app
+necesita internet y una URL publicada en `CAPACITOR_SERVER_URL` para iniciar sesion y guardar datos.
 
 ## Cero confianza
 

@@ -35,7 +35,8 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+      styleSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", 'data:'],
       formAction: ["'self'"],
@@ -44,6 +45,7 @@ app.use(helmet({
   },
 }));
 app.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
+app.use(express.json({ limit: '260kb', type: 'application/json' }));
 app.use(express.static(path.join(carpetaProyecto, 'assets'), { index: false, dotfiles: 'deny' }));
 app.use(session({
   name: 'asistencia.sid',
@@ -178,7 +180,13 @@ app.get('/health', async (req, res, next) => {
 
 app.use((req, res) => res.status(404).render('error', { mensaje: 'La pagina solicitada no existe.' }));
 app.use((error, req, res, next) => {
-  console.error('[asistencia] Error interno:', error.code || error.name || 'desconocido');
+  // Registrar contexto tecnico sin incluir URL con IDs, datos personales ni detalles SQL.
+  console.error('[asistencia] Error interno:', JSON.stringify({
+    fecha: new Date().toISOString(),
+    metodo: req.method,
+    ruta: req.route?.path || 'sin-ruta',
+    codigo: error.code || error.name || 'desconocido',
+  }));
   if (res.headersSent) return next(error);
   return res.status(500).render('error', { mensaje: 'Ocurrio un error. Intenta nuevamente.' });
 });

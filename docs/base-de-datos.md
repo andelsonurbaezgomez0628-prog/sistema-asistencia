@@ -20,6 +20,9 @@ docentes por seccion. La reinstalacion destructiva exige respaldo y confirmacion
 npm run db:setup -- --forzar --confirmar
 ```
 
+El instalador aplica tambien `sql/migracion_fotos.sql`, que agrega campos `BYTEA` opcionales para
+fotos de usuarios y estudiantes sin borrar datos existentes.
+
 ## 2. Relaciones
 
 ```text
@@ -39,11 +42,11 @@ a una seccion asignada a la cuenta autenticada.
 
 | Tabla | Campos relevantes | Regla |
 |---|---|---|
-| `usuarios` | identidad, `password_hash`, `rol`, `activo BOOLEAN` | usuario/cedula unicos; roles admin/docente |
+| `usuarios` | identidad, `password_hash`, `rol`, `activo BOOLEAN`, foto opcional (`BYTEA`) | usuario/cedula unicos; roles admin/docente |
 | `cursos` | nombre y descripcion | nombre unico |
 | `secciones` | curso, ano escolar | nombre unico dentro del curso |
 | `seccion_docentes` | seccion, docente | clave compuesta; un docente puede compartir la seccion |
-| `estudiantes` | numero de lista, datos, seccion y activo | numero unico dentro de la seccion (1-40); desactivar preserva historial |
+| `estudiantes` | numero de lista, datos, seccion, foto opcional (`BYTEA`) y activo | numero unico dentro de la seccion (1-40); desactivar preserva historial |
 | `asistencia` | estudiante, fecha, estado, autor | UNIQUE por estudiante/fecha; enum controlado con CHECK |
 | `alertas` | nivel, faltas, racha, explicacion, estado | conserva evidencia del calculo |
 | `sesiones` | id opaco, expiracion, JSON serializado | expira y se elimina al cerrar sesion |

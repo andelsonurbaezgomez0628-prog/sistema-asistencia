@@ -29,7 +29,7 @@ export function crearCargarUsuarioActual(consulta) {
     try {
       // La sesion identifica la cuenta, pero PostgreSQL confirma que siga activa.
       const filas = await consulta(
-        'SELECT id, nombre, usuario, rol FROM usuarios WHERE id = $1 AND activo = TRUE LIMIT 1',
+        'SELECT id, nombre, usuario, rol, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND activo = TRUE LIMIT 1',
         [req.session.userId],
       );
 

@@ -370,3 +370,32 @@ docentes en cada una de sus secciones.
 - **Verificacion:** `npm run check`; `npm test` (52 pruebas). `npm run db:setup` conservo datos,
   migro las 4 asignaciones existentes y verifico 4 secciones, 58 estudiantes y 48 asistencias.
   Una prueba dentro de una transaccion y revertida confirmo dos docentes en una misma seccion.
+
+## 2026-11-02 - Rediseno visual "Cuaderno vivo"
+
+**Decision:** reemplazar la interfaz completa por un sistema visual propio llamado "Cuaderno vivo":
+papel lavanda, tinta violeta y acentos menta, sol, coral, cielo y rosa. El estilo es colorido y
+juvenil, pero conserva jerarquia, contraste y legibilidad para uso institucional. Se redisenaron
+login, panel, asistencia, alertas, reportes, gestion, cuenta, edicion, error y la barra superior.
+
+- **Tipografias:** Bricolage Grotesque para titulos y Plus Jakarta Sans para texto, cargadas desde
+  Google Fonts. Se agregaron `preconnect` y una sola hoja de estilos de fuentes en
+  `views/partials/head.ejs`.
+- **CSP:** `src/server.js` permite `https://fonts.googleapis.com` en `styleSrc` y
+  `https://fonts.gstatic.com` en `fontSrc`. No se habilito `unsafe-inline`; siguen prohibidos los
+  estilos en linea y los scripts externos no autorizados.
+- **Componentes:** los iconos PNG mezclados se sustituyeron por un parcial EJS de iconos SVG de
+  linea (`views/partials/icono.ejs`). Los metadatos, Bootstrap y el CSS del proyecto viven en
+  `views/partials/head.ejs`.
+- **Compatibilidad:** se conservaron rutas, nombres de campos, consultas y los hooks de JavaScript
+  (`data-nav-toggle`, `data-estado-asistencia`, `data-conteo-estado`, `data-gestion-tab`,
+  `data-marcar-todos-presentes`). Las cuatro reglas CSS exactas de `.estado-selector` que exige
+  `tests/vistas.test.js` se mantienen sin cambios.
+- **Accesibilidad:** foco visible, etiquetas asociadas, `aria-*` en tabs y menus, soporte de
+  `prefers-reduced-motion` y estilos de impresion para reportes.
+- **Verificacion:** `npm test` (56 pruebas) y `npm run check`; revision visual con capturas en
+  escritorio y movil de login, panel, asistencia, alertas, reportes, gestion, cuenta y edicion.
+- **Fotos de perfil:** se guardan como `BYTEA` opcional en PostgreSQL, con migracion compatible;
+  solo JPEG/PNG/WebP reescalados en el navegador, maximo 180 KB guardados, y rutas privadas
+  autorizadas por cuenta o asignacion de seccion. En el detalle del estudiante se muestra una
+  miniatura normal y otra ampliada con desenfoque de fondo.

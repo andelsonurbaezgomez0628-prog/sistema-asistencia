@@ -1,11 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reportes | Asistencia Escolar</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="/css/estilos.css" rel="stylesheet">
+  <%- include('partials/head', { titulo: 'Reportes | Asistencia Escolar' }) %>
 </head>
 <body class="reportes-page">
   <%- include('partials/nav') %>
@@ -26,35 +22,42 @@
       acumulado += segmento.porcentaje;
     }
   %>
-  <main class="container py-4">
+  <main class="container">
     <header class="reportes-encabezado">
       <div>
-        <p class="dashboard-kicker mb-1">Análisis académico</p>
-        <h1 class="h3 mb-1 page-heading"><img class="page-icon" src="/icons/reporte-de-negocios.png" alt="" aria-hidden="true">Reporte de asistencia</h1>
+        <p class="page-kicker">Análisis académico</p>
+        <h1>Reporte de asistencia</h1>
         <p class="dashboard-subtitle mb-0">Consulta tendencias y registros por curso, sección y período.</p>
       </div>
-      <a class="btn reportes-boton-panel" href="/">Panel</a>
+      <div class="reportes-exportar" data-exportacion-general data-desde="<%= desde %>" data-hasta="<%= hasta %>" data-asistencia-general="<%= asistenciaGeneral %>" data-total-registros="<%= totalRegistros %>">
+        <button class="btn btn-outline-primary" type="button" data-exportar="pdf">PDF</button>
+        <button class="btn btn-outline-primary" type="button" data-exportar="excel">Excel</button>
+        <button class="btn btn-outline-primary" type="button" data-exportar="word">Word</button>
+        <a class="btn btn-ghost" href="/"><%- include('partials/icono', { nombre: 'panel' }) %>Panel</a>
+      </div>
     </header>
+
     <section class="reportes-filtros-panel" aria-label="Filtros del reporte">
       <form class="row g-2 align-items-end" method="get" action="/reportes">
-      <div class="col-sm-6 col-lg-2"><label class="form-label" for="desde">Desde</label><input class="form-control" type="date" id="desde" name="desde" value="<%= desde %>" max="<%= hoy %>" required></div>
-      <div class="col-sm-6 col-lg-2"><label class="form-label" for="hasta">Hasta</label><input class="form-control" type="date" id="hasta" name="hasta" value="<%= hasta %>" max="<%= hoy %>" required></div>
-      <div class="col-sm-6 col-lg-3"><label class="form-label" for="curso">Curso</label><select class="form-select" id="curso" name="curso"><option value="">Todos</option><% for (const curso of cursos) { %><option value="<%= curso.id %>" <%= idCurso === Number(curso.id) ? 'selected' : '' %>><%= curso.nombre %></option><% } %></select></div>
-      <div class="col-sm-6 col-lg-3"><label class="form-label" for="seccion">Seccion</label><select class="form-select" id="seccion" name="seccion"><option value="">Todas</option><% for (const seccion of secciones) { %><option value="<%= seccion.id %>" <%= idSeccion === Number(seccion.id) ? 'selected' : '' %>><%= seccion.curso %> · <%= seccion.nombre %></option><% } %></select></div>
-      <div class="col-lg-2"><button class="btn btn-primary w-100" type="submit">Filtrar</button></div>
+        <div class="col-sm-6 col-lg-2"><label class="form-label" for="desde">Desde</label><input class="form-control" type="date" id="desde" name="desde" value="<%= desde %>" max="<%= hoy %>" required></div>
+        <div class="col-sm-6 col-lg-2"><label class="form-label" for="hasta">Hasta</label><input class="form-control" type="date" id="hasta" name="hasta" value="<%= hasta %>" max="<%= hoy %>" required></div>
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="curso">Curso</label><select class="form-select" id="curso" name="curso"><option value="">Todos</option><% for (const curso of cursos) { %><option value="<%= curso.id %>" <%= idCurso === Number(curso.id) ? 'selected' : '' %>><%= curso.nombre %></option><% } %></select></div>
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="seccion">Sección</label><select class="form-select" id="seccion" name="seccion"><option value="">Todas</option><% for (const seccion of secciones) { %><option value="<%= seccion.id %>" data-curso-id="<%= seccion.curso_id %>" data-curso-nombre="<%= seccion.curso %>" <%= idSeccion === Number(seccion.id) ? 'selected' : '' %>><%= seccion.nombre %></option><% } %></select></div>
+        <div class="col-lg-2"><button class="btn btn-primary w-100" type="submit"><%- include('partials/icono', { nombre: 'buscar' }) %>Filtrar</button></div>
       </form>
     </section>
 
-    <p class="reportes-rango reportes-contexto text-secondary">
+    <p class="reportes-rango reportes-contexto">
       Del <strong><%= fechaCorta(desde) %></strong> al <strong><%= fechaCorta(hasta) %></strong>
-      · <%= filas.length %> estudiante(s) · Asistencia general <strong><%= asistenciaGeneral %>%</strong>
+      <span aria-hidden="true">·</span> <%= filas.length %> estudiante(s)
+      <span aria-hidden="true">·</span> Asistencia general <strong><%= asistenciaGeneral %>%</strong>
     </p>
 
     <section class="reportes-graficos" aria-label="Reportes visuales">
       <article class="card grafico-card">
         <div class="card-header">
-          <h2 class="h5 mb-0">Distribución de registros</h2>
-          <p class="grafico-subtitulo mb-0"><%= totalRegistros %> registro(s) en el rango elegido</p>
+          <h2>Distribución de registros</h2>
+          <p class="grafico-subtitulo mb-0"><%= totalRegistros %> registro(s) en el rango</p>
         </div>
         <div class="card-body grafico-dona-cuerpo">
           <svg class="grafico-dona" viewBox="0 0 42 42" role="img" aria-label="Gráfico de pastel: distribución de registros entre asistencias, tardanzas, ausencias y justificadas">
@@ -83,7 +86,7 @@
 
       <article class="card grafico-card">
         <div class="card-header">
-          <h2 class="h5 mb-0">Asistencia por curso</h2>
+          <h2>Asistencia por curso</h2>
           <p class="grafico-subtitulo mb-0">Tardanza cuenta como asistencia</p>
         </div>
         <div class="card-body">
@@ -108,17 +111,17 @@
     <section class="card reportes-detalle-card">
       <header class="card-header reportes-detalle-encabezado">
         <div>
-          <h2 class="h5 mb-0">Detalle por estudiante</h2>
+          <h2>Detalle por estudiante</h2>
           <p class="grafico-subtitulo mb-0">Registros individuales para el rango seleccionado.</p>
         </div>
         <span class="reportes-total-estudiantes"><%= filas.length %> estudiantes</span>
       </header>
       <div class="reportes-estudiantes-grid">
         <% for (const fila of filas) { const diasRegistradosFila = Number(fila.dias_registrados || 0); const porcentaje = diasRegistradosFila > 0 ? Math.round((Number(fila.asistencias || 0) / diasRegistradosFila) * 100) : 0; %>
-          <article class="reportes-estudiante-card">
+          <a class="reportes-estudiante-card text-decoration-none" data-elemento-buscable data-texto-busqueda="<%= fila.nombre %> <%= fila.apellido %> <%= fila.numero_lista %> <%= fila.curso %> <%= fila.seccion %>" data-fila-exportacion data-nombre="<%= fila.apellido %>, <%= fila.nombre %>" data-lista="<%= fila.numero_lista %>" data-curso="<%= fila.curso %>" data-seccion="<%= fila.seccion %>" data-asistencias="<%= fila.asistencias || 0 %>" data-tardanzas="<%= fila.tardanzas || 0 %>" data-ausencias="<%= fila.ausencias || 0 %>" data-justificadas="<%= fila.justificadas || 0 %>" data-porcentaje="<%= diasRegistradosFila > 0 ? porcentaje : '--' %>" href="/reportes/estudiantes/<%= fila.id %>?desde=<%= encodeURIComponent(desde) %>&hasta=<%= encodeURIComponent(hasta) %>">
             <header class="reportes-estudiante-encabezado">
               <div class="reportes-estudiante-identidad">
-                <span class="reportes-estudiante-icono" aria-hidden="true"><img src="/icons/profesor.png" alt=""></span>
+                <span class="reportes-estudiante-icono" aria-hidden="true"><% if (fila.tiene_foto) { %><img src="/fotos/estudiantes/<%= fila.id %>" alt=""><% } else { %><%- include('partials/icono', { nombre: 'estudiante' }) %><% } %></span>
                 <div>
                   <h3><%= fila.apellido %>, <%= fila.nombre %></h3>
                   <p>Lista N° <%= fila.numero_lista %> <span aria-hidden="true">·</span> <%= fila.curso %> · <%= fila.seccion %></p>
@@ -143,11 +146,12 @@
                 <progress class="barra-asistencia" max="100" value="<%= porcentaje %>" aria-label="Asistencia de <%= fila.nombre %> <%= fila.apellido %>: <%= porcentaje %>%"><%= porcentaje %>%</progress>
               <% } %>
             </div>
-          </article>
+          </a>
         <% } %>
       </div>
       <% if (filas.length === 0) { %><p class="text-secondary reportes-sin-resultados">No hay registros para esos filtros.</p><% } %>
     </section>
   </main>
+  <script src="/js/reportes.js" defer></script>
 </body>
 </html>

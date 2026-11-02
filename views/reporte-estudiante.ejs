@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <%- include('partials/head', { titulo: 'Detalle del estudiante | Asistencia Escolar' }) %>
+</head>
+<body class="reportes-page">
+  <%- include('partials/nav') %>
+  <% const fechaLarga = (valor) => new Intl.DateTimeFormat('es-DO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${String(valor).slice(0, 10)}T00:00:00Z`)); const fechaRango = (valor) => new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${String(valor).slice(0, 10)}T00:00:00Z`)); %>
+  <main class="container py-4">
+    <a class="btn btn-ghost mb-3" href="/reportes?desde=<%= encodeURIComponent(desde) %>&hasta=<%= encodeURIComponent(hasta) %>">← Volver a reportes</a>
+    <header class="estudiante-portada mb-4">
+      <% if (estudiante.tiene_foto) { %><img class="estudiante-portada-fondo" src="/fotos/estudiantes/<%= estudiante.id %>" alt=""><% } %>
+      <div class="estudiante-portada-avatar" aria-hidden="true">
+        <% if (estudiante.tiene_foto) { %><img class="estudiante-foto-normal" src="/fotos/estudiantes/<%= estudiante.id %>" alt=""><% } else { %><span><%= estudiante.nombre.charAt(0).toUpperCase() %></span><% } %>
+      </div>
+      <div class="estudiante-portada-contenido">
+        <p class="page-kicker">Detalle individual</p>
+        <h1><%= estudiante.nombre %> <%= estudiante.apellido %></h1>
+        <p class="dashboard-subtitle">Lista N° <%= estudiante.numero_lista %> · <%= estudiante.curso %> · <%= estudiante.seccion %></p>
+      </div>
+      <div class="reporte-exportar" data-exportacion-reporte data-estudiante="<%= estudiante.nombre %> <%= estudiante.apellido %>" data-desde="<%= desde %>" data-hasta="<%= hasta %>">
+        <button class="btn btn-outline-primary" type="button" data-exportar="pdf">Exportar PDF</button>
+        <button class="btn btn-outline-primary" type="button" data-exportar="excel">Exportar Excel</button>
+        <button class="btn btn-outline-primary" type="button" data-exportar="word">Exportar Word</button>
+      </div>
+    </header>
+    <section class="reporte-rango-selector" aria-label="Seleccionar período de asistencia">
+      <div>
+        <h2>Consultar por período</h2>
+        <p>Elige las fechas para ver el registro de asistencia del estudiante.</p>
+      </div>
+      <form method="get" action="/reportes/estudiantes/<%= estudiante.id %>" class="reporte-rango-form">
+        <div><label for="fecha-desde">Desde</label><input class="form-control" id="fecha-desde" name="desde" type="date" value="<%= desde %>" max="<%= hoy %>" required></div>
+        <div><label for="fecha-hasta">Hasta</label><input class="form-control" id="fecha-hasta" name="hasta" type="date" value="<%= hasta %>" max="<%= hoy %>" required></div>
+        <button class="btn btn-primary" type="submit">Ver asistencia</button>
+      </form>
+    </section>
+    <section class="card">
+      <header class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="reporte-periodo">
+          <h2 class="h5 mb-2">Historial de asistencia</h2>
+          <div class="reporte-periodo-fechas" aria-label="Período del reporte">
+            <div class="reporte-periodo-fecha"><span>Desde</span><time datetime="<%= desde %>"><%= fechaRango(desde) %></time></div>
+            <span class="reporte-periodo-separador" aria-hidden="true">→</span>
+            <div class="reporte-periodo-fecha"><span>Hasta</span><time datetime="<%= hasta %>"><%= fechaRango(hasta) %></time></div>
+          </div>
+        </div>
+        <span class="badge text-bg-primary"><%= historial.length %> registros</span>
+      </header>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Estado</th><th scope="col">Observación</th></tr></thead>
+          <tbody>
+            <% for (const registro of historial) { %>
+              <tr><td><time datetime="<%= String(registro.fecha).slice(0, 10) %>"><%= fechaLarga(registro.fecha) %></time></td><td><span class="reporte-estado estado-<%= registro.estado %>"><span aria-hidden="true"><%= registro.estado === 'presente' ? '✓' : registro.estado === 'tardanza' ? '◷' : registro.estado === 'ausente' ? '!' : 'i' %></span><%= registro.estado.charAt(0).toUpperCase() + registro.estado.slice(1) %></span></td><td><%= registro.observacion || '—' %></td></tr>
+            <% } %>
+            <% if (historial.length === 0) { %><tr><td colspan="3" class="text-center text-secondary py-4">No hay registros para este período.</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/js/reporte-estudiante.js" defer></script>
+</body>
+</html>
