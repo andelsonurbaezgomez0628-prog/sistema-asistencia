@@ -9,7 +9,6 @@
   <main class="container py-4">
     <a class="btn btn-ghost mb-3" href="/reportes?desde=<%= encodeURIComponent(desde) %>&hasta=<%= encodeURIComponent(hasta) %>">← Volver a reportes</a>
     <header class="estudiante-portada mb-4">
-      <% if (estudiante.tiene_foto) { %><img class="estudiante-portada-fondo" src="/fotos/estudiantes/<%= estudiante.id %>" alt=""><% } %>
       <div class="estudiante-portada-avatar" aria-hidden="true">
         <% if (estudiante.tiene_foto) { %><img class="estudiante-foto-normal" src="/fotos/estudiantes/<%= estudiante.id %>" alt=""><% } else { %><span><%= estudiante.nombre.charAt(0).toUpperCase() %></span><% } %>
       </div>

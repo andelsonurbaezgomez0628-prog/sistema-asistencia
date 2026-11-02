@@ -801,7 +801,7 @@ textarea.form-control { min-height: 110px; }
 }
 
 .navbar-avatar .icono { width: 1.05rem; height: 1.05rem; }
-.navbar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.navbar-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 
 .navbar-user-details {
     display: flex;
@@ -858,7 +858,7 @@ textarea.form-control { min-height: 110px; }
     25%, 75% { outline: 3px solid rgba(107, 75, 255, .42); outline-offset: 3px; }
 }
 .cuenta-resumen-avatar { overflow: hidden; }
-.cuenta-resumen-avatar img, .foto-vista-previa { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.cuenta-resumen-avatar img, .foto-vista-previa { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .foto-vista-previa { width: 96px; height: 96px; display: block; margin-bottom: .75rem; border-radius: 50%; }
 .foto-subida { display: grid; justify-items: start; gap: .35rem; }
 .foto-subida [data-estado-foto] { color: var(--tinta-tenue); }
@@ -867,10 +867,8 @@ textarea.form-control { min-height: 110px; }
 .cuenta-resumen .foto-subida input[type="file"] { display: block; width: 100%; min-width: 0; padding: .55rem; overflow: hidden; border-radius: 11px; background: #fff; font-size: .75rem; }
 .cuenta-resumen .foto-subida .btn { justify-self: start; margin-top: .15rem !important; }
 .estudiante-portada { position: relative; isolation: isolate; display: flex; align-items: center; gap: 1.25rem; min-height: 210px; overflow: hidden; padding: 1.5rem; border: 1px solid var(--asist-borde); border-radius: 24px; background: linear-gradient(115deg, #f4f0ff, #fff 75%); }
-.estudiante-portada-fondo { position: absolute; z-index: -2; inset: -30%; width: 160%; height: 160%; object-fit: cover; opacity: .22; filter: blur(18px); transform: scale(1.08); }
-.estudiante-portada::after { position: absolute; z-index: -1; inset: 0; content: ''; background: linear-gradient(90deg, rgba(255,255,255,.82), rgba(255,255,255,.72)); }
 .estudiante-portada-avatar { flex: 0 0 112px; width: 112px; height: 112px; overflow: hidden; display: grid; place-items: center; border: 4px solid #fff; border-radius: 50%; background: var(--uva-claro); color: var(--uva-fuerte); box-shadow: 0 8px 28px rgba(44,34,86,.2); font-size: 2.5rem; font-weight: 800; }
-.estudiante-foto-normal { width: 100%; height: 100%; object-fit: cover; }
+.estudiante-foto-normal { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .estudiante-portada-contenido { min-width: 0; }
 .estudiante-portada-contenido h1 { margin-bottom: .35rem; }
 @media (max-width: 575.98px) { .estudiante-portada { align-items: flex-start; flex-direction: column; min-height: 0; gap: .8rem; } .estudiante-portada-avatar { width: 84px; height: 84px; flex-basis: 84px; font-size: 1.8rem; } }
@@ -1423,6 +1421,7 @@ body > footer {
     flex: 0 0 40px;
     width: 40px;
     height: 40px;
+    overflow: hidden;
     place-items: center;
     border-radius: 50%;
     background: var(--uva-suave);
@@ -1430,7 +1429,7 @@ body > footer {
 }
 
 .estudiante-avatar .icono { width: 1.2rem; height: 1.2rem; }
-.estudiante-avatar img, .reportes-estudiante-icono img { width: 100%; height: 100%; object-fit: cover; }
+.estudiante-avatar img, .reportes-estudiante-icono img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 
 .asistencia-estudiante strong {
     display: block;
