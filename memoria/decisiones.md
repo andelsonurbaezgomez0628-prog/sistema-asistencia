@@ -459,3 +459,6 @@ package ID correspondiente y la huella publica de la clave de firma.
   y emiten cookies `HttpOnly`, `Secure` y `SameSite=Lax`.
 - **Pendiente de despliegue:** ambas URL responden 404 en `/.well-known/assetlinks.json` hasta que se
   publique este cambio del servidor.
+- **Correccion de arranque:** declarar `ManageDataLauncherActivity` y `android:manageSpaceActivity`
+  en el manifiesto; sin ello Android Browser Helper intentaba cambiar el estado de un componente
+  ausente y cerraba la app al iniciarla.
