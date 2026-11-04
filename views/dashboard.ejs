@@ -15,7 +15,7 @@
           <a class="btn btn-primary" href="/asistencia"><%- include('partials/icono', { nombre: 'asistencia' }) %>Registrar asistencia</a>
           <a class="btn btn-ghost" href="/alertas"><%- include('partials/icono', { nombre: 'alertas' }) %>Revisar alertas</a>
           <a class="btn btn-ghost" href="/reportes"><%- include('partials/icono', { nombre: 'reportes' }) %>Ver reportes</a>
-          <% if (usuario.rol === 'admin') { %><a class="btn btn-ghost" href="/gestion"><img class="btn-imagen" src="/icons/agregar-usuario.png" alt="" width="22" height="22">Gestionar</a><% } %>
+          <% if (usuario.rol === 'admin') { %><a class="btn btn-ghost" href="/gestion"><%- include('partials/icono', { nombre: 'gestion' }) %>Gestionar</a><% } %>
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
@@ -29,7 +29,7 @@
       const etiquetas = { cursos: 'Cursos', secciones: 'Secciones', docentes: 'Docentes activos', estudiantes: 'Estudiantes activos', alertas: 'Alertas pendientes' };
       const pistas = { cursos: 'Oferta académica', secciones: 'Grupos del centro', docentes: 'Equipo docente', estudiantes: 'En las aulas', alertas: 'Requieren seguimiento' };
       const iconos = { cursos: 'curso', secciones: 'seccion', docentes: 'docente', estudiantes: 'estudiante', alertas: 'alertas' };
-      const imagenes = { secciones: 'secciones.png', docentes: 'profesor.png', estudiantes: 'estudio.png', alertas: 'alerta.png' };
+      const imagenes = { cursos: 'libro.png', secciones: 'secciones.png', docentes: 'profesor.png', estudiantes: 'estudio.png', alertas: 'alerta.png' };
     %>
     <section class="metrics-grid" aria-label="Resumen del centro">
       <% for (const [clave, valor] of Object.entries(resumen)) { %>
