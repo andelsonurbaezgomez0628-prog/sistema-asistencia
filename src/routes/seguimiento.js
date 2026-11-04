@@ -10,12 +10,14 @@ const nivelesPermitidos = new Set(['bajo', 'medio', 'alto']);
 const estadosAlertaPermitidos = new Set(['pendiente', 'atendida']);
 const formatosFotoPermitidos = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+/* Fotos: comprobar formato y limitar el peso antes de guardar datos binarios. */
 function decodificarFoto(dataUrl) {
   if (typeof dataUrl !== 'string' || dataUrl.length > 245000) return null;
   const coincidencia = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
   if (!coincidencia || !formatosFotoPermitidos.has(coincidencia[1])) return null;
   const datos = Buffer.from(coincidencia[2], 'base64');
   if (datos.length > 180000) return null;
+  // El tipo declarado no basta: comprobar la firma evita guardar contenido de otro formato.
   const esJpeg = datos[0] === 0xff && datos[1] === 0xd8 && datos[2] === 0xff;
   const esPng = datos.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   const esWebp = datos.toString('ascii', 0, 4) === 'RIFF' && datos.toString('ascii', 8, 12) === 'WEBP';
@@ -79,7 +81,10 @@ router.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (req, res, ne
   } catch (error) { return next(error); }
 });
 
-// Cuenta: el usuario solo puede consultar y modificar su propio perfil.
+/*
+ * Cuenta personal: permite editar datos propios y cambiar la contrasena.
+ * El rol y el estado activo quedan bajo control de administracion.
+ */
 async function buscarCuentaActual(id) {
   const filas = await consulta(
     'SELECT id, nombre, cedula, usuario, rol, activo, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
@@ -173,6 +178,7 @@ function esFechaValida(fecha) {
   return Number.isFinite(fechaUtc.getTime()) && fechaUtc.toISOString().slice(0, 10) === fecha;
 }
 
+/* Secciones: admin ve todas; docente solo ve las que tiene asignadas. */
 // Devuelve todas las secciones a admin y solo las asignadas al docente.
 async function seccionesDisponibles(usuario) {
   const filtroDocente = usuario.rol === 'docente'
@@ -187,11 +193,50 @@ async function seccionesDisponibles(usuario) {
   );
 }
 
+function validarEntradasAsistencia(datosFormulario, estudiantes) {
+  const entradas = [];
+
+  for (const estudiante of estudiantes) {
+    const idEstudiante = String(estudiante.id);
+    const estado = datosFormulario[`estado_${idEstudiante}`];
+    const observacion = datosFormulario[`observacion_${idEstudiante}`];
+
+    // La lista esperada viene de PostgreSQL; no se confia en los IDs enviados por el navegador.
+    if (estado === undefined) {
+      return {
+        entradas: [],
+        tipoError: 'faltan_estudiantes',
+      };
+    }
+    if (typeof estado !== 'string' || !estadosPermitidos.has(estado)) {
+      return {
+        entradas: [],
+        tipoError: 'estado_no_permitido',
+      };
+    }
+    if (observacion !== undefined && typeof observacion !== 'string') {
+      return {
+        entradas: [],
+        tipoError: 'observacion_no_valida',
+      };
+    }
+
+    entradas.push({ id: idEstudiante, estado, observacion });
+  }
+
+  return { entradas, tipoError: null };
+}
+
+/*
+ * Alerta de un estudiante: consultar ventana de 30 dias, aplicar la regla pura
+ * y actualizar la alerta pendiente del dia dentro de la transaccion actual.
+ */
 async function calcularAlerta(conexion, idEstudiante) {
   // PostgreSQL define la fecha local de negocio y el periodo incluye hoy y 29 dias previos.
   const { rows: [{ hoy }] } = await conexion.query('SELECT CURRENT_DATE AS hoy');
 
   // Contar faltas y tardanzas, y obtener las fechas que sirven para calcular la racha.
+  // Solo se cuenta 'ausente'; una falta justificada no aumenta el riesgo.
   const { rows: [conteo] } = await conexion.query(
     `SELECT COUNT(*) FILTER (WHERE estado = 'ausente') AS faltas,
        COUNT(*) FILTER (WHERE estado = 'tardanza') AS tardanzas
@@ -207,6 +252,7 @@ async function calcularAlerta(conexion, idEstudiante) {
   const faltas = Number(conteo.faltas || 0);
   const tardanzas = Number(conteo.tardanzas || 0);
   const racha = calcula_racha_maxima(filasFechas.map((fila) => fila.fecha));
+  // La regla pura decide el nivel; esta funcion solo sincroniza el resultado con la base.
   const riesgo = clasificar_riesgo(faltas, tardanzas, racha);
 
   // Mantener una alerta pendiente del dia; si no existe, crearla mas abajo.
@@ -241,7 +287,10 @@ async function calcularAlerta(conexion, idEstudiante) {
   return riesgo;
 }
 
-// Asistencia: mostrar lista y guardar todos sus estados en una transaccion.
+/*
+ * Pase de lista: GET prepara la vista; POST vuelve a validar seccion, fecha y
+ * lista de estudiantes, luego guarda asistencia y alertas como una transaccion.
+ */
 router.get('/asistencia', requerirLogin, async (req, res, next) => {
   try {
     const secciones = await seccionesDisponibles(req.user);
@@ -306,33 +355,24 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       'SELECT id FROM estudiantes WHERE seccion_id = $1 AND activo IS TRUE',
       [idSeccion],
     );
-    // Los campos llegan como estado_<id> y observacion_<id>. No usar
-    // corchetes con el id (estado[7]) porque el parser los convierte en
-    // arreglo y se pierde la relacion entre estudiante y estado.
-    const entradas = [];
-    for (const estudiante of estudiantes) {
-      const id = String(estudiante.id);
-      const estado = req.body[`estado_${id}`];
-      const observacion = req.body[`observacion_${id}`];
-      if (estado === undefined) {
-        await conexion.query('ROLLBACK');
+    // Los campos usan estado_<id>; asi el parser no confunde estudiantes con indices de un arreglo.
+    const validacionEntradas = validarEntradasAsistencia(req.body, estudiantes);
+    if (validacionEntradas.tipoError) {
+      await conexion.query('ROLLBACK');
+
+      if (validacionEntradas.tipoError === 'faltan_estudiantes') {
         req.session.flash = 'La lista debe incluir a todos los estudiantes activos de la seccion.';
         return res.redirect(`/asistencia?seccion=${idSeccion}&fecha=${fecha}`);
       }
-      if (typeof estado !== 'string' || !estadosPermitidos.has(estado)) {
-        await conexion.query('ROLLBACK');
+      if (validacionEntradas.tipoError === 'estado_no_permitido') {
         return res.status(400).render('error', { mensaje: 'La lista contiene un estudiante o estado no permitido.' });
       }
-      if (observacion !== undefined && typeof observacion !== 'string') {
-        await conexion.query('ROLLBACK');
-        return res.status(400).render('error', { mensaje: 'La observacion no es valida.' });
-      }
-      entradas.push({ id, estado, observacion });
+      return res.status(400).render('error', { mensaje: 'La observacion no es valida.' });
     }
 
     // Guardar cada marca y recalcular su alerta dentro de la misma transaccion.
     let conRiesgo = 0;
-    for (const { id, estado, observacion } of entradas) {
+    for (const { id, estado, observacion } of validacionEntradas.entradas) {
       const observacionLimpia = (observacion || '').trim().slice(0, 255) || null;
       await conexion.query(
         `INSERT INTO asistencia (estudiante_id, fecha, estado, observacion, creado_por)
@@ -345,8 +385,9 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       if (riesgo.nivel !== 'bajo') conRiesgo += 1;
     }
 
+    // Confirmar al final hace que asistencia y alertas se guarden como una sola operacion.
     await conexion.query('COMMIT');
-    req.session.flash = `Asistencia guardada: ${entradas.length} registro(s). Estudiantes con alerta: ${conRiesgo}.`;
+    req.session.flash = `Asistencia guardada: ${validacionEntradas.entradas.length} registro(s). Estudiantes con alerta: ${conRiesgo}.`;
     return res.redirect(`/asistencia?seccion=${idSeccion}&fecha=${fecha}`);
   } catch (error) {
     await conexion.query('ROLLBACK');
@@ -356,7 +397,10 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
   }
 });
 
-// Alertas: filtrar por nivel/estado y permitir que admin recalcule el conjunto completo.
+/*
+ * Alertas: docentes ven las de sus secciones; coordinacion puede recalcular
+ * todas y cualquier atencion de alerta requiere permiso y una nota.
+ */
 router.get('/alertas', requerirLogin, async (req, res, next) => {
   try {
     // Aceptar solo filtros conocidos antes de formar la consulta.
@@ -484,7 +528,10 @@ router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (req, res
   }
 });
 
-// Reportes: comprobar filtros, consultar filas autorizadas y preparar sus totales.
+/*
+ * Reportes: normalizar filtros, limitar los datos por permisos y calcular
+ * porcentajes y totales con la tardanza incluida como asistencia.
+ */
 function resumirReportes(filas) {
   const resumenRegistros = { presentes: 0, tardanzas: 0, ausencias: 0, justificadas: 0 };
   const asistenciasPorCurso = new Map();

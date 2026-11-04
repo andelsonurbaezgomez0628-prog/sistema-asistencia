@@ -1,5 +1,10 @@
 import 'dotenv/config';
 
+/*
+ * Configuracion central.
+ * El resto de la aplicacion importa estos valores ya validados para no leer
+ * variables de entorno de manera distinta en cada modulo.
+ */
 // La huella es publica: Digital Asset Links la usa para asociar la web con los APK firmados.
 const androidAssetLinksByHost = Object.freeze({
   'sistema-asistencia-2os4.onrender.com': Object.freeze({
@@ -12,31 +17,45 @@ const androidAssetLinksByHost = Object.freeze({
   }),
 });
 
-function requerido(nombre, variables) {
+function obtenerVariableObligatoria(nombre, variables) {
   const valor = variables[nombre];
   if (!valor) throw new Error(`${nombre} debe configurarse en .env.`);
   return valor;
 }
 
-export function crearConfiguracion(variables = process.env) {
-  const databaseUrl = new URL(requerido('DATABASE_URL', variables));
-  if (!['postgres:', 'postgresql:'].includes(databaseUrl.protocol)) {
+function crearUrlPostgres(variables) {
+  const direccion = new URL(obtenerVariableObligatoria('DATABASE_URL', variables));
+  const protocolosPermitidos = ['postgres:', 'postgresql:'];
+
+  if (!protocolosPermitidos.includes(direccion.protocol)) {
     throw new Error('DATABASE_URL debe ser una URI PostgreSQL.');
   }
-  if (databaseUrl.searchParams.get('sslmode') === 'require') {
-    databaseUrl.searchParams.set('sslmode', 'verify-full');
+
+  // verify-full comprueba el certificado y que corresponda con el servidor esperado.
+  if (direccion.searchParams.get('sslmode') === 'require') {
+    direccion.searchParams.set('sslmode', 'verify-full');
   }
 
-  const sessionSecret = requerido('SESSION_SECRET', variables);
+  return direccion.toString();
+}
+
+function obtenerPuerto(variables) {
+  const puerto = Number(variables.PORT || 3000);
+  if (!Number.isInteger(puerto) || puerto < 1 || puerto > 65535) {
+    throw new Error('PORT debe ser un puerto entero entre 1 y 65535.');
+  }
+  return puerto;
+}
+
+export function crearConfiguracion(variables = process.env) {
+  // Este es el unico lugar que lee la configuracion para que las rutas usen valores ya validados.
+  const databaseUrl = crearUrlPostgres(variables);
+  const sessionSecret = obtenerVariableObligatoria('SESSION_SECRET', variables);
   if (sessionSecret.length < 32) {
     throw new Error('SESSION_SECRET debe tener al menos 32 caracteres.');
   }
 
-  const port = Number(variables.PORT || 3000);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('PORT debe ser un puerto entero entre 1 y 65535.');
-  }
-
+  const port = obtenerPuerto(variables);
   const nodeEnv = variables.NODE_ENV || 'development';
   // Render define RENDER=true aunque NODE_ENV no se configure. Detectarlo evita
   // que el servicio quede sin cookies Secure o sin confiar en el proxy.
@@ -55,4 +74,5 @@ export function crearConfiguracion(variables = process.env) {
   });
 }
 
+/* La aplicacion carga esta configuracion una vez al iniciar. */
 export const config = crearConfiguracion();

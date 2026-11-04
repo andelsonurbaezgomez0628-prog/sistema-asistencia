@@ -1,34 +1,52 @@
+/*
+ * Menu principal adaptable.
+ * En pantallas pequenas se abre con el boton y se cierra al elegir una ruta;
+ * en pantallas grandes permanece visible.
+ */
 const botonMenu = document.querySelector('[data-nav-toggle]');
-const menu = document.querySelector('#primaryMenu');
-const mobileQuery = window.matchMedia('(max-width: 767.98px)');
+const menuPrincipal = document.querySelector('#primaryMenu');
+const vistaMovil = window.matchMedia('(max-width: 767.98px)');
 
-// Si existe la botonera, mantener menu, etiqueta accesible y estado sincronizados.
-if (botonMenu && menu) {
+function actualizarEstadoDelMenu(estaAbierto) {
+  // aria-expanded y aria-label informan a lectores de pantalla del mismo estado visual.
+  menuPrincipal.classList.toggle('is-open', estaAbierto);
+  botonMenu.setAttribute('aria-expanded', String(estaAbierto));
+  botonMenu.setAttribute('aria-label', estaAbierto ? 'Cerrar menu' : 'Abrir menu');
+}
+
+function prepararMenuPrincipal() {
+  if (!botonMenu || !menuPrincipal) return;
+
+  // Solo ocultamos el menu con JavaScript activo, para no dejarlo inaccesible si falla.
   document.documentElement.classList.add('nav-js');
 
-  function establecerMenu(abierto) {
-    menu.classList.toggle('is-open', abierto);
-    botonMenu.setAttribute('aria-expanded', String(abierto));
-    botonMenu.setAttribute('aria-label', abierto ? 'Cerrar menu' : 'Abrir menu');
-  }
-
   botonMenu.addEventListener('click', () => {
-    establecerMenu(botonMenu.getAttribute('aria-expanded') !== 'true');
+    const estaAbierto = botonMenu.getAttribute('aria-expanded') === 'true';
+    actualizarEstadoDelMenu(!estaAbierto);
   });
 
-  menu.querySelectorAll('a').forEach((enlace) => {
+  menuPrincipal.querySelectorAll('a').forEach((enlace) => {
     enlace.addEventListener('click', () => {
-      if (mobileQuery.matches) establecerMenu(false);
+      if (vistaMovil.matches) actualizarEstadoDelMenu(false);
     });
   });
 
   document.addEventListener('keydown', (evento) => {
-    if (evento.key === 'Escape' && mobileQuery.matches && botonMenu.getAttribute('aria-expanded') === 'true') {
-      establecerMenu(false);
-      botonMenu.focus();
-    }
+    const debeCerrar = evento.key === 'Escape'
+      && vistaMovil.matches
+      && botonMenu.getAttribute('aria-expanded') === 'true';
+    if (!debeCerrar) return;
+
+    actualizarEstadoDelMenu(false);
+    botonMenu.focus();
   });
 
-  mobileQuery.addEventListener('change', (evento) => establecerMenu(!evento.matches));
-  establecerMenu(!mobileQuery.matches);
+  vistaMovil.addEventListener('change', (evento) => {
+    // En escritorio el menu queda abierto; en movil empieza cerrado.
+    actualizarEstadoDelMenu(!evento.matches);
+  });
+
+  actualizarEstadoDelMenu(!vistaMovil.matches);
 }
+
+prepararMenuPrincipal();

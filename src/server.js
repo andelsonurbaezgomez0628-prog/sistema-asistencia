@@ -23,6 +23,7 @@ const carpetaProyecto = path.resolve(carpetaActual, '..');
 const app = express();
 const sessionStore = new PostgresSessionStore(pool);
 
+/* Vistas y cabeceras de seguridad */
 app.set('view engine', 'ejs');
 app.set('views', path.join(carpetaProyecto, 'views'));
 app.disable('x-powered-by');
@@ -63,6 +64,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
 app.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
 app.use(express.json({ limit: '260kb', type: 'application/json' }));
 app.use(express.static(path.join(carpetaProyecto, 'assets'), { index: false, dotfiles: 'deny' }));
+// El store PostgreSQL se configura antes de las rutas para que cada solicitud tenga sesion persistida.
 app.use(session({
   name: 'asistencia.sid',
   secret: config.sessionSecret,
@@ -80,6 +82,7 @@ app.use(session({
 
 // 2. Preparar datos comunes que usan las vistas y cargar la cuenta de la sesion.
 app.use((req, res, next) => {
+  // Las vistas reciben un token para incluirlo en todos los formularios que modifican datos.
   if (!req.session.csrfToken) req.session.csrfToken = crearTokenCsrf();
   res.locals.csrfToken = req.session.csrfToken;
   res.locals.usuario = null;
@@ -103,6 +106,31 @@ const limiteLogin = rateLimit({
   message: 'Demasiados intentos. Intenta de nuevo mas tarde.',
 });
 
+/* Inicio de sesion: leer campos, validar la cuenta y guardar una sesion nueva. */
+function obtenerCredenciales(req) {
+  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
+  const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
+  return { usuario, clave };
+}
+
+async function regenerarSesion(req) {
+  await new Promise((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+async function guardarSesion(req) {
+  await new Promise((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 // 3. Inicio y cierre de sesion.
 app.get('/login', (req, res) => {
   if (req.user) return res.redirect('/');
@@ -110,27 +138,31 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', limiteLogin, protegerCsrf, async (req, res, next) => {
-  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
-  const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
+  const { usuario, clave } = obtenerCredenciales(req);
 
   if (!usuario || !clave || usuario.length > 50 || clave.length > 200) {
     return res.status(400).render('login', { error: 'Usuario o contrasena incorrectos.' });
   }
 
   try {
-    const filas = await consulta(
+    const cuentas = await consulta(
       'SELECT id, nombre, usuario, rol, password_hash FROM usuarios WHERE usuario = $1 AND activo = TRUE LIMIT 1',
       [usuario],
     );
-    const cuenta = filas[0];
-    const valida = cuenta ? await bcrypt.compare(clave, cuenta.password_hash) : false;
+    const cuenta = cuentas[0];
+    // La misma respuesta evita revelar si fallo el usuario o la contrasena.
+    const contrasenaValida = cuenta ? await bcrypt.compare(clave, cuenta.password_hash) : false;
 
-    if (!valida) return res.status(401).render('login', { error: 'Usuario o contrasena incorrectos.' });
+    if (!contrasenaValida) {
+      return res.status(401).render('login', { error: 'Usuario o contrasena incorrectos.' });
+    }
 
-    await new Promise((resolve, reject) => req.session.regenerate((error) => error ? reject(error) : resolve()));
+    // Crear otra sesion despues de autenticar evita reutilizar un identificador anterior.
+    await regenerarSesion(req);
     req.session.userId = cuenta.id;
     req.session.csrfToken = crearTokenCsrf();
-    return req.session.save((error) => error ? next(error) : res.redirect('/'));
+    await guardarSesion(req);
+    return res.redirect('/');
   } catch (error) {
     return next(error);
   }
@@ -144,36 +176,43 @@ app.post('/logout', protegerCsrf, (req, res, next) => {
   });
 });
 
+/* Panel: los conteos de docente se limitan a las secciones asignadas. */
+async function obtenerResumenAdministrador() {
+  const filas = await consulta(
+    `SELECT
+      (SELECT COUNT(*) FROM cursos) AS cursos,
+      (SELECT COUNT(*) FROM secciones) AS secciones,
+      (SELECT COUNT(*) FROM usuarios WHERE rol = 'docente' AND activo = TRUE) AS docentes,
+      (SELECT COUNT(*) FROM estudiantes WHERE activo = TRUE) AS estudiantes,
+      (SELECT COUNT(*) FROM alertas WHERE estado = 'pendiente') AS alertas`,
+  );
+  return filas[0];
+}
+
+async function obtenerResumenDocente(idDocente) {
+  const filas = await consulta(
+    `SELECT COUNT(DISTINCT s.id) AS secciones,
+      COUNT(DISTINCT e.id) AS estudiantes,
+      COUNT(DISTINCT a.id) AS alertas
+     FROM secciones s
+     LEFT JOIN estudiantes e ON e.seccion_id = s.id AND e.activo = TRUE
+     LEFT JOIN alertas a ON a.estudiante_id = e.id AND a.estado = 'pendiente'
+     WHERE EXISTS (
+       SELECT 1 FROM seccion_docentes sd
+       WHERE sd.seccion_id = s.id AND sd.docente_id = $1
+     )`,
+    [idDocente],
+  );
+  return filas[0];
+}
+
 // 4. Pagina principal: el resumen depende del rol confirmado en PostgreSQL.
 app.get('/', requerirLogin, async (req, res, next) => {
   try {
-    let resumen;
-    if (req.user.rol === 'admin') {
-      const filas = await consulta(
-        `SELECT
-          (SELECT COUNT(*) FROM cursos) AS cursos,
-          (SELECT COUNT(*) FROM secciones) AS secciones,
-          (SELECT COUNT(*) FROM usuarios WHERE rol = 'docente' AND activo = TRUE) AS docentes,
-          (SELECT COUNT(*) FROM estudiantes WHERE activo = TRUE) AS estudiantes,
-          (SELECT COUNT(*) FROM alertas WHERE estado = 'pendiente') AS alertas`,
-      );
-      resumen = filas[0];
-    } else {
-      const filas = await consulta(
-        `SELECT COUNT(DISTINCT s.id) AS secciones,
-          COUNT(DISTINCT e.id) AS estudiantes,
-          COUNT(DISTINCT a.id) AS alertas
-         FROM secciones s
-         LEFT JOIN estudiantes e ON e.seccion_id = s.id AND e.activo = TRUE
-         LEFT JOIN alertas a ON a.estudiante_id = e.id AND a.estado = 'pendiente'
-         WHERE EXISTS (
-           SELECT 1 FROM seccion_docentes sd
-           WHERE sd.seccion_id = s.id AND sd.docente_id = $1
-         )`,
-        [req.user.id],
-      );
-      resumen = filas[0];
-    }
+    // Cada rol recibe conteos construidos sobre sus propios permisos.
+    const resumen = req.user.rol === 'admin'
+      ? await obtenerResumenAdministrador()
+      : await obtenerResumenDocente(req.user.id);
 
     return res.render('dashboard', { resumen });
   } catch (error) {
@@ -184,7 +223,7 @@ app.get('/', requerirLogin, async (req, res, next) => {
 app.use('/', seguimiento);
 app.use('/gestion', administracion);
 
-// 5. Estado del servicio y respuestas genericas ante errores.
+/* Salud del servicio y respuestas de error sin exponer SQL ni datos personales. */
 app.get('/health', async (req, res, next) => {
   try {
     await consulta('SELECT 1');

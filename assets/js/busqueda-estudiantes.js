@@ -1,69 +1,110 @@
-function textoBuscable(valor) {
-  return valor.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+/*
+ * Funciones compartidas por las busquedas de listas y la busqueda global.
+ * Normalizar el texto hace que las tildes no impidan encontrar un nombre.
+ */
+function normalizarTextoBuscable(texto) {
+  // Separar las tildes de las letras permite buscar "Maria" y encontrar "María".
+  return texto.toLocaleLowerCase('es').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').trim();
 }
 
-document.querySelectorAll('[data-busqueda-inteligente]').forEach((buscador) => {
-  const selector = buscador.dataset.busquedaInteligente;
-  const elementos = Array.from(document.querySelectorAll(`${selector} [data-elemento-buscable]`));
-  const avisoVacio = document.querySelector(buscador.dataset.avisoVacio || '');
-  const avisoResultados = document.querySelector(buscador.dataset.avisoResultados || '');
+function obtenerTerminosDeBusqueda(texto) {
+  return normalizarTextoBuscable(texto).split(/\s+/).filter(Boolean);
+}
 
-  function buscar() {
-    const terminos = textoBuscable(buscador.value).split(/\s+/).filter(Boolean);
-    let cantidad = 0;
-    for (const elemento of elementos) {
-      const texto = textoBuscable(elemento.dataset.textoBusqueda || elemento.textContent);
-      const coincide = terminos.every((termino) => texto.includes(termino));
-      elemento.hidden = !coincide;
-      if (coincide) cantidad += 1;
-    }
-    if (avisoVacio) avisoVacio.hidden = terminos.length === 0 || cantidad > 0;
-    if (avisoResultados) avisoResultados.textContent = terminos.length ? `${cantidad} resultado(s)` : '';
+function coincideConBusqueda(elemento, terminos) {
+  const texto = elemento.dataset.textoBusqueda || elemento.textContent;
+  const textoNormalizado = normalizarTextoBuscable(texto);
+  // Cada palabra escrita debe aparecer, aunque las palabras esten en columnas distintas.
+  return terminos.every((termino) => textoNormalizado.includes(termino));
+}
+
+function mostrarResultados(elementos, terminos, avisoVacio, avisoCantidad) {
+  let cantidadVisible = 0;
+
+  for (const elemento of elementos) {
+    const coincide = coincideConBusqueda(elemento, terminos);
+    elemento.hidden = !coincide;
+    if (coincide) cantidadVisible += 1;
   }
 
-  buscador.addEventListener('input', buscar);
-});
+  if (avisoVacio) avisoVacio.hidden = terminos.length === 0 || cantidadVisible > 0;
+  if (avisoCantidad) {
+    avisoCantidad.textContent = terminos.length ? `${cantidadVisible} resultado(s)` : '';
+  }
 
-const buscadorGlobal = document.querySelector('[data-busqueda-global]');
-const toggleBuscadorGlobal = document.querySelector('[data-busqueda-global-toggle]');
-const campoBuscadorGlobal = document.querySelector('[data-busqueda-global-campo]');
-const avisoBuscadorGlobal = document.querySelector('[data-busqueda-global-vacio]');
-const resultadosBuscadorGlobal = document.querySelector('[data-busqueda-global-resultados]');
-const elementosGlobales = Array.from(document.querySelectorAll('[data-elemento-buscable]'));
+  return cantidadVisible;
+}
 
-if (buscadorGlobal && toggleBuscadorGlobal && campoBuscadorGlobal) {
-  document.querySelector('[data-busqueda-global-form]')?.addEventListener('submit', (evento) => {
-    evento.preventDefault();
-    if (!buscadorGlobal.value.trim()) return;
-    const primero = elementosGlobales.find((elemento) => !elemento.hidden);
-    if (!primero) return;
-    primero.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    primero.classList.add('busqueda-resaltada');
-    window.setTimeout(() => primero.classList.remove('busqueda-resaltada'), 1400);
-  });
-  toggleBuscadorGlobal.addEventListener('click', () => {
-    const abierto = toggleBuscadorGlobal.getAttribute('aria-expanded') === 'true';
-    toggleBuscadorGlobal.setAttribute('aria-expanded', String(!abierto));
-    toggleBuscadorGlobal.setAttribute('aria-label', abierto ? 'Abrir búsqueda de estudiantes' : 'Cerrar búsqueda de estudiantes');
-    campoBuscadorGlobal.classList.toggle('is-open', !abierto);
-    campoBuscadorGlobal.setAttribute('aria-hidden', String(abierto));
-    if (!abierto) buscadorGlobal.focus();
-    else {
-      buscadorGlobal.value = '';
-      buscadorGlobal.dispatchEvent(new Event('input'));
-    }
-  });
+/* Busqueda local: cada pagina indica que elementos debe filtrar. */
+function prepararBusquedasDeLista() {
+  document.querySelectorAll('[data-busqueda-inteligente]').forEach((buscador) => {
+    const selector = buscador.dataset.busquedaInteligente;
+    const elementos = Array.from(document.querySelectorAll(`${selector} [data-elemento-buscable]`));
+    const avisoVacio = document.querySelector(buscador.dataset.avisoVacio || '');
+    const avisoCantidad = document.querySelector(buscador.dataset.avisoResultados || '');
 
-  buscadorGlobal.addEventListener('input', () => {
-    const terminos = textoBuscable(buscadorGlobal.value).split(/\s+/).filter(Boolean);
-    let cantidad = 0;
-    for (const elemento of elementosGlobales) {
-      const texto = textoBuscable(elemento.dataset.textoBusqueda || elemento.textContent);
-      const coincide = terminos.every((termino) => texto.includes(termino));
-      elemento.hidden = !coincide;
-      if (coincide) cantidad += 1;
-    }
-    if (avisoBuscadorGlobal) avisoBuscadorGlobal.hidden = terminos.length === 0 || cantidad > 0;
-    if (resultadosBuscadorGlobal) resultadosBuscadorGlobal.textContent = terminos.length ? `${cantidad} resultado(s)` : '';
+    buscador.addEventListener('input', () => {
+      const terminos = obtenerTerminosDeBusqueda(buscador.value);
+      mostrarResultados(elementos, terminos, avisoVacio, avisoCantidad);
+    });
   });
 }
+
+/* Busqueda global: filtra tarjetas y permite saltar al primer resultado. */
+function prepararBusquedaGlobal() {
+  const buscador = document.querySelector('[data-busqueda-global]');
+  const botonAbrir = document.querySelector('[data-busqueda-global-toggle]');
+  const panelBuscador = document.querySelector('[data-busqueda-global-campo]');
+  const avisoVacio = document.querySelector('[data-busqueda-global-vacio]');
+  const avisoCantidad = document.querySelector('[data-busqueda-global-resultados]');
+  const elementos = Array.from(document.querySelectorAll('[data-elemento-buscable]'));
+
+  if (!buscador || !botonAbrir || !panelBuscador) return;
+
+  function actualizarResultados() {
+    const terminos = obtenerTerminosDeBusqueda(buscador.value);
+    mostrarResultados(elementos, terminos, avisoVacio, avisoCantidad);
+  }
+
+  function alternarPanel() {
+    const estaAbierto = botonAbrir.getAttribute('aria-expanded') === 'true';
+    const nuevoEstado = !estaAbierto;
+
+    botonAbrir.setAttribute('aria-expanded', String(nuevoEstado));
+    botonAbrir.setAttribute('aria-label', nuevoEstado
+      ? 'Cerrar búsqueda de estudiantes'
+      : 'Abrir búsqueda de estudiantes');
+    panelBuscador.classList.toggle('is-open', nuevoEstado);
+    panelBuscador.setAttribute('aria-hidden', String(!nuevoEstado));
+
+    if (nuevoEstado) {
+      buscador.focus();
+      return;
+    }
+
+    buscador.value = '';
+    actualizarResultados();
+  }
+
+  function enfocarPrimerResultado(evento) {
+    evento.preventDefault();
+    if (!buscador.value.trim()) return;
+
+    // El filtro ya escondio los que no coinciden; el primer resultado visible es el mejor destino.
+    const primerResultado = elementos.find((elemento) => !elemento.hidden);
+    if (!primerResultado) return;
+
+    primerResultado.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    primerResultado.classList.add('busqueda-resaltada');
+    window.setTimeout(() => primerResultado.classList.remove('busqueda-resaltada'), 1400);
+  }
+
+  document.querySelector('[data-busqueda-global-form]')
+    ?.addEventListener('submit', enfocarPrimerResultado);
+  botonAbrir.addEventListener('click', alternarPanel);
+  buscador.addEventListener('input', actualizarResultados);
+}
+
+prepararBusquedasDeLista();
+prepararBusquedaGlobal();

@@ -1,3 +1,9 @@
+/*
+ * Reglas puras de riesgo escolar.
+ * No consulta la base de datos: recibe conteos y fechas, y devuelve la racha
+ * y el nivel de riesgo para que las rutas puedan guardar o mostrar el resultado.
+ */
+// Estos umbrales son la regla escolar; se mantienen juntos para que sea facil revisarlos.
 const VENTANA_DIAS = 30;
 const FALTAS_MEDIO = 3;
 const FALTAS_ALTO = 5;
@@ -5,11 +11,12 @@ const TARDANZAS_EXTRA = 4;
 const RACHA_ALTO = 3;
 
 // Convierte una fecha en dias UTC para comparar dias consecutivos sin zona horaria.
-function numeroDeDia(fecha) {
+function convertirFechaADiaUtc(fecha) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     throw new TypeError('La fecha debe tener formato YYYY-MM-DD.');
   }
 
+  // Fijar UTC evita que una medianoche se convierta en el dia anterior segun la computadora.
   const milisegundos = Date.parse(`${fecha}T00:00:00.000Z`);
   if (!Number.isFinite(milisegundos)) {
     throw new TypeError('La fecha no es valida.');
@@ -23,20 +30,22 @@ function numeroDeDia(fecha) {
   return Math.floor(milisegundos / 86400000);
 }
 
-export function calcula_racha_maxima(fechas) {
-  if (!Array.isArray(fechas)) {
+export function calcula_racha_maxima(fechasAusencia) {
+  if (!Array.isArray(fechasAusencia)) {
     throw new TypeError('Las fechas de ausencia deben estar en un arreglo.');
   }
-  if (fechas.length === 0) return 0;
+  if (fechasAusencia.length === 0) return 0;
 
   // Se usan dias UTC para que los cambios de horario no alteren la racha.
   // Quitamos fechas duplicadas y ordenamos antes de contar la secuencia mas larga.
-  const dias = [...new Set(fechas.map(numeroDeDia))].sort((a, b) => a - b);
+  const diasUtcOrdenados = [...new Set(fechasAusencia.map(convertirFechaADiaUtc))]
+    .sort((a, b) => a - b);
   let rachaActual = 1;
   let rachaMaxima = 1;
 
-  for (let indice = 1; indice < dias.length; indice += 1) {
-    if (dias[indice] === dias[indice - 1] + 1) {
+  for (let indice = 1; indice < diasUtcOrdenados.length; indice += 1) {
+    const esDiaConsecutivo = diasUtcOrdenados[indice] === diasUtcOrdenados[indice - 1] + 1;
+    if (esDiaConsecutivo) {
       rachaActual += 1;
     } else {
       rachaActual = 1;
@@ -47,21 +56,25 @@ export function calcula_racha_maxima(fechas) {
   return rachaMaxima;
 }
 
+/* Clasificacion: tardanzas ajustan el puntaje; la racha tambien puede elevar el nivel. */
 export function clasificar_riesgo(faltas, tardanzas, racha) {
-  for (const valor of [faltas, tardanzas, racha]) {
-    if (!Number.isInteger(valor) || valor < 0) {
+  const conteos = [faltas, tardanzas, racha];
+  for (const conteo of conteos) {
+    if (!Number.isInteger(conteo) || conteo < 0) {
       throw new TypeError('Los conteos de riesgo deben ser enteros no negativos.');
     }
   }
 
   // Cuatro tardanzas o mas agregan un punto total al puntaje de ausencias.
-  let score = faltas;
-  if (tardanzas >= TARDANZAS_EXTRA) score += 1;
+  // El puntaje combina faltas sin justificar y un punto adicional por tardanzas frecuentes.
+  let puntaje = faltas;
+  if (tardanzas >= TARDANZAS_EXTRA) puntaje += 1;
 
   let nivel = 'bajo';
-  if (score >= FALTAS_ALTO || racha >= RACHA_ALTO) {
+  // La racha alta activa riesgo alto aunque el total de faltas aun sea menor que cinco.
+  if (puntaje >= FALTAS_ALTO || racha >= RACHA_ALTO) {
     nivel = 'alto';
-  } else if (score >= FALTAS_MEDIO) {
+  } else if (puntaje >= FALTAS_MEDIO) {
     nivel = 'medio';
   }
 
@@ -75,5 +88,5 @@ export function clasificar_riesgo(faltas, tardanzas, racha) {
       + '. Se recomienda contactar al representante.';
   }
 
-  return { nivel, score, mensaje };
+  return { nivel, score: puntaje, mensaje };
 }

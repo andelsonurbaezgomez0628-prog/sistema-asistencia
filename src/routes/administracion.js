@@ -5,37 +5,68 @@ import { protegerCsrf, requerirAdmin, validarId } from '../security.js';
 
 const router = Router();
 
+/*
+ * Validaciones de formularios de coordinacion.
+ * Se ejecutan en el servidor porque cualquier valor enviado desde el navegador
+ * puede modificarse antes de llegar a estas rutas.
+ */
 // Validaciones de los campos que se usan en las pantallas de gestion.
-const cedulaValida = (valor) => typeof valor === 'string' && /^[0-9]{7,8}$/.test(valor);
-const numeroListaValido = (valor) => typeof valor === 'string' && /^[1-9][0-9]?$/.test(valor) && Number(valor) <= 40;
-const textoValido = (valor, maximo) => typeof valor === 'string' && valor.trim().length > 0 && valor.trim().length <= maximo;
-const fechaValida = (valor) => {
+function cedulaValida(valor) {
+  return typeof valor === 'string' && /^[0-9]{7,8}$/.test(valor);
+}
+
+function numeroListaValido(valor) {
+  return typeof valor === 'string'
+    && /^[1-9][0-9]?$/.test(valor)
+    && Number(valor) <= 40;
+}
+
+function textoValido(valor, maximo) {
+  if (typeof valor !== 'string') return false;
+  const textoLimpio = valor.trim();
+  return textoLimpio.length > 0 && textoLimpio.length <= maximo;
+}
+
+function fechaValida(valor) {
   if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
   const fecha = new Date(`${valor}T00:00:00.000Z`);
   return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
-};
-const anioEscolarValido = (valor) => {
+}
+
+function anioEscolarValido(valor) {
+  // El periodo escolar debe cubrir dos anos consecutivos, por ejemplo 2026-2027.
   const partes = typeof valor === 'string' ? /^(\d{4})-(\d{4})$/.exec(valor) : null;
   return partes !== null && Number(partes[2]) === Number(partes[1]) + 1;
-};
+}
+
 const ROLES_CUENTA = { docente: 'docente', administrador: 'admin' };
-const contarAdminsActivos = async () => {
-  const filas = await consulta("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'admin' AND activo IS TRUE");
-  return Number(filas[0].total);
-};
+
+async function contarAdminsActivos() {
+  const resultado = await consulta("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'admin' AND activo IS TRUE");
+  return Number(resultado[0].total);
+}
 
 // Convierte las casillas de docentes en una lista de IDs segura y sin repetidos.
 function normalizarIdsDocentes(valor) {
-  const lista = Array.isArray(valor) ? valor : typeof valor === 'string' ? [valor] : [];
+  let lista = [];
+  if (Array.isArray(valor)) {
+    lista = valor;
+  } else if (typeof valor === 'string') {
+    lista = [valor];
+  }
+
   if (lista.length === 0 || lista.length > 100) return null;
   const ids = lista.map(validarId);
+  // Rechazar repetidos evita insertar dos veces la misma asignacion de seccion.
   if (ids.some((id) => id === null) || new Set(ids).size !== ids.length) return null;
   return ids;
 }
 
 async function docentesValidos(ids, seccionId = null) {
-  const filas = seccionId
-    ? await consulta(
+  let filas;
+  if (seccionId) {
+    // Al editar seccion, conservar docentes ya asignados aunque ahora esten inactivos.
+    filas = await consulta(
       `SELECT u.id FROM usuarios u
        WHERE u.id = ANY($1::integer[]) AND u.rol = 'docente'
          AND (u.activo IS TRUE OR EXISTS (
@@ -43,11 +74,14 @@ async function docentesValidos(ids, seccionId = null) {
            WHERE sd.seccion_id = $2 AND sd.docente_id = u.id
          ))`,
       [ids, seccionId],
-    )
-    : await consulta(
+    );
+  } else {
+    filas = await consulta(
       "SELECT id FROM usuarios WHERE id = ANY($1::integer[]) AND rol = 'docente' AND activo IS TRUE",
       [ids],
     );
+  }
+
   return filas.length === ids.length;
 }
 
@@ -71,6 +105,7 @@ async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
       seccionId = resultado.rows[0].id;
     }
 
+    // Reemplazar las asignaciones dentro de la transaccion evita perderlas si el INSERT falla.
     await conexion.query('DELETE FROM seccion_docentes WHERE seccion_id = $1', [seccionId]);
     await conexion.query(
       `INSERT INTO seccion_docentes (seccion_id, docente_id)
@@ -87,9 +122,11 @@ async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
   }
 }
 
+/* Todo el modulo requiere cuenta activa con rol admin; cada POST valida CSRF. */
 router.use(requerirAdmin);
 
 // Inicio de Gestion: carga las listas que usan las pestañas de administracion.
+/* Lectura: cargar listas para que la coordinacion pueda revisar y editar registros. */
 router.get('/', async (req, res, next) => {
   try {
     const [cursos, secciones, estudiantes, docentes, administradores] = await Promise.all([
@@ -131,6 +168,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+/* Edicion: el tipo selecciona una consulta fija y datos auxiliares permitidos. */
 router.get('/editar/:tipo/:id', async (req, res, next) => {
   const { tipo } = req.params;
   const id = validarId(req.params.id);
@@ -179,6 +217,7 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
   }
 });
 
+/* Guardado de cambios: validar campos y relaciones antes de actualizar la tabla correspondiente. */
 router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
   const { tipo } = req.params;
   const id = validarId(req.params.id);
@@ -283,7 +322,7 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
   }
 });
 
-// Cursos y secciones: crear, actualizar o eliminar solo cuando no rompa relaciones.
+/* Cursos y secciones: no borrar elementos que aun tengan estudiantes o historial asociado. */
 router.post('/cursos', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
@@ -378,7 +417,7 @@ router.post('/secciones/:id/eliminar', protegerCsrf, async (req, res, next) => {
   }
 });
 
-// Estudiantes: actualizar datos o desactivar conservando el historial escolar.
+/* Estudiantes: desactivar conserva asistencia y alertas que ya forman parte del historial. */
 router.post('/estudiantes', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const numeroLista = typeof req.body.numero_lista === 'string' ? req.body.numero_lista.trim() : '';
@@ -436,7 +475,7 @@ router.post('/estudiantes/:id/desactivar', protegerCsrf, async (req, res, next) 
   }
 });
 
-// Cuentas del personal: contrasenas con hash y rol fijado por la ruta del servidor.
+/* Personal: guardar contrasenas con hash; el rol lo determina la ruta, no el formulario. */
 router.post('/docentes', protegerCsrf, async (req, res, next) => {
   const id = req.body.id ? validarId(req.body.id) : null;
   const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
