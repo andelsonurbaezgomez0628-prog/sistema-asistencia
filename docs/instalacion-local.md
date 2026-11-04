@@ -58,6 +58,18 @@ contiene la URI ni otras credenciales. Primero ejecuta `npm ci` para instalar de
 En VS Code tambien puedes iniciar el perfil **Asistencia Escolar (Node.js)** con F5. Ese perfil
 lee `.env` localmente; no copies `DATABASE_URL` a `launch.json`.
 
+## Despliegue en produccion
+
+El repositorio configura Render con `render.yaml` y Hostless con `hostless.yaml`. En ambos
+servicios configura `DATABASE_URL` y `SESSION_SECRET` en el panel del proveedor, nunca en Git.
+Hostless arranca con `NODE_ENV=production`; Render ya lo define en su Blueprint. Esto activa la
+cookie `Secure` y la confianza en el proxy HTTPS. No sobrescribas `PORT` ni `HOST`.
+
+Para que las dos URL muestren los mismos datos escolares, configura en ambos servicios la misma
+URI de Neon. La ruta `/health` comprueba la conexion con PostgreSQL y es el chequeo del despliegue.
+Tras publicar, abre `/health` y `/login` en cada dominio con HTTPS; confirma que la cookie de
+sesion tenga `HttpOnly`, `Secure` y `SameSite=Lax`.
+
 ## 3. Instalador PostgreSQL
 
 `npm run db:setup` usa la misma `DATABASE_URL` que la aplicacion. Si las seis tablas base ya

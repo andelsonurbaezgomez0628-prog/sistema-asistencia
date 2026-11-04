@@ -1,0 +1,10 @@
+build:
+  system: auto
+  command: npm ci
+
+start_command: "NODE_ENV=production npm start"
+
+health_check:
+  type: http
+  http_path: /health
+  interval_in_seconds: 30

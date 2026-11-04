@@ -399,3 +399,18 @@ login, panel, asistencia, alertas, reportes, gestion, cuenta, edicion, error y l
   solo JPEG/PNG/WebP reescalados en el navegador, maximo 180 KB guardados, y rutas privadas
   autorizadas por cuenta o asignacion de seccion. En el detalle del estudiante se muestra una
   miniatura normal y otra ampliada con desenfoque de fondo.
+
+## 2026-11-04 - Segunda instancia web en Hostless
+
+**Decision:** mantener la misma aplicacion Node/Express disponible en Render y Hostless. Se agrega
+`hostless.yaml` con instalacion reproducible (`npm ci`), modo `NODE_ENV=production` y `/health`
+como chequeo HTTP. El modo de produccion es necesario para que la sesion use cookie `Secure` y
+Express confie en el proxy HTTPS de Hostless.
+
+- **Secretos:** `DATABASE_URL` y `SESSION_SECRET` se configuran por separado en el panel de cada
+  proveedor y nunca se versionan. Se puede compartir la URI de Neon cuando ambas URL deben operar
+  sobre los mismos datos; el secreto de sesion puede ser diferente.
+- **Datos:** `/health` ejecuta `SELECT 1`; no ejecutar `npm run db:setup` durante cada despliegue.
+- **Verificacion previa:** ambas URL respondieron HTTP 200 en `/health` y `/login`; Render ya
+  entrega `HttpOnly`, `Secure` y `SameSite=Lax`. Hostless aun no marcaba la cookie `Secure`; la
+  configuracion nueva lo corregira al desplegar la rama con `hostless.yaml`.

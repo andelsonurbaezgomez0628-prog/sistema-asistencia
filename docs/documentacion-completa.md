@@ -295,6 +295,17 @@ Las pruebas unitarias no sustituyen las pruebas manuales con PostgreSQL y navega
 
 El servidor escucha en `0.0.0.0` y usa `PORT`. En hosting se habilitan cookies `Secure` y confianza en un proxy. Neon almacena los datos. No ejecutar el instalador en cada despliegue; se usa una vez para una base vacia o cuando haya una migracion planificada.
 
+`hostless.yaml` configura la segunda instancia web en Hostless con `npm ci`,
+`NODE_ENV=production npm start` y la comprobacion HTTP `/health`. En la app Hostless se configuran
+fuera de Git `DATABASE_URL` y `SESSION_SECRET`. Si ambas URL deben compartir las mismas cuentas,
+cursos y asistencias, se asigna la misma URI Neon a Render y Hostless; cada servicio puede tener
+su propio secreto de sesion. No se ejecuta el instalador en cada despliegue.
+
+Las direcciones de produccion son:
+
+- Render: `https://sistema-asistencia-2os4.onrender.com`
+- Hostless: `https://sistema-ineligente.hostless.app`
+
 ## 15. Aplicacion Android con Capacitor
 
 La configuracion actual esta en `capacitor.config.ts`, con ID `com.sistema.asistencia`, nombre `Sistema Asistencia`, `webDir` `www` y una URL remota HTTPS. La app necesita internet y el servidor publicado disponible; no incluye una copia offline del servidor Express ni de PostgreSQL.

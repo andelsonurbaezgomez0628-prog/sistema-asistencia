@@ -95,6 +95,27 @@ en cada despliegue. Si la base estuviera vacia, ejecutarlo una sola vez desde la
 servicio en Render. `NODE_ENV=production` activa cookies `Secure`, por lo que el sitio debe abrirse
 por HTTPS (Render lo entrega automaticamente).
 
+## Despliegue en Hostless
+
+La segunda instancia publica la misma aplicacion en `https://sistema-ineligente.hostless.app`.
+El archivo `hostless.yaml` fija `npm ci`, arranca Node con `NODE_ENV=production` y usa `/health`
+como verificacion. Esa ruta consulta PostgreSQL antes de responder `estado: ok`.
+
+En la configuracion de la app Hostless, conecta este repositorio y la rama `main`, y define fuera
+de Git:
+
+- `DATABASE_URL`: la URI PostgreSQL de produccion. Usa la misma base Neon que Render si ambas
+  URL deben mostrar los mismos cursos, usuarios y asistencias.
+- `SESSION_SECRET`: un secreto aleatorio de al menos 32 caracteres. Puede ser distinto al de
+  Render.
+
+No definas `HOST` ni `PORT`: Hostless proporciona el puerto y el servidor escucha en
+`0.0.0.0`. `hostless.yaml` establece el modo de produccion para activar cookies `Secure` y la
+confianza en el proxy HTTPS. No ejecutes `npm run db:setup` en cada despliegue.
+
+Despues de desplegar, verifica `https://sistema-ineligente.hostless.app/health` y el formulario
+`/login` por HTTPS. La guia oficial describe el [despliegue de apps Express en Hostless](https://docs.hostless.cloud/javascript/express).
+
 ## Aplicacion Android
 
 La app Capacitor reutiliza el sitio Express publicado por Render; requiere internet y no funciona
