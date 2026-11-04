@@ -21,7 +21,7 @@ de acceso por seccion.
 - Asignar uno o varios docentes a una seccion.
 - Restringir los datos de cada docente a las secciones que tiene asignadas.
 - Editar los datos propios de la cuenta y cambiar su contrasena.
-- Usar una aplicacion Android basada en Capacitor que abre el servicio web publicado.
+- Abrir las dos versiones web desde APK Android mediante Trusted Web Activity.
 
 ## 3. Usuarios y permisos
 
@@ -96,7 +96,8 @@ Navegador / aplicacion Android
 - **Presentacion:** EJS en servidor, Bootstrap 5 y hoja CSS propia.
 - **Persistencia:** PostgreSQL mediante `pg`, con TLS y verificacion del certificado.
 - **Sesiones:** `express-session` con store PostgreSQL propio.
-- **Aplicacion movil:** Capacitor 8 para Android; el contenedor carga la URL HTTPS del servidor.
+- **Aplicacion movil:** Android Browser Helper abre cada dominio por Trusted Web Activity; los
+  dominios se asocian a sus paquetes Android con Digital Asset Links.
 - **Despliegue web:** Render configurado en `render.yaml`; PostgreSQL alojado en Neon.
 
 No se usa ORM ni una aplicacion frontend separada. La logica del servidor y los permisos permanecen en Node; el cliente solo presenta formularios y vistas.
@@ -125,8 +126,7 @@ tools/                    Instalador de base de datos
 tests/                    Pruebas automaticas de reglas, seguridad y vistas
 docs/                     Guias operativas y documentacion
 memoria/                  Decisiones e historia tecnica del equipo
-android/                  Proyecto nativo generado para Capacitor
-www/                      Directorio web configurado para Capacitor
+android/                  Proyecto nativo Android con Trusted Web Activity
 ```
 
 ## 8. Rutas HTTP principales
@@ -215,7 +215,6 @@ La configuracion se centraliza en `src/config.js` y se carga desde `.env`.
 | `PORT` | No | Puerto HTTP, por defecto `3000`. |
 | `HOST` | No | Se ignora; Node escucha en `0.0.0.0` para funcionar detras del proxy. |
 | `RENDER` | Automatico en Render | Tambien activa ajustes seguros de hosting. |
-| `CAPACITOR_SERVER_URL` | No | URL HTTPS que abre la app Android; tiene un valor de respaldo en `capacitor.config.ts`. |
 
 No copiar secretos a `README`, capturas, commits o parametros de comandos que queden en historial.
 
@@ -242,8 +241,9 @@ Scripts definidos:
 | `npm run check` | Ejecuta `node --check` sobre los modulos y pruebas listados. |
 | `npm test` | Ejecuta las pruebas integradas con `node --test`. |
 | `npm run db:setup` | Instala o verifica esquema, datos demo y migraciones. |
-| `npm run mobile:sync` | Sincroniza recursos y plugins con el proyecto Android. |
-| `npm run mobile:open` | Abre Android Studio con el proyecto movil. |
+| `npm run mobile:build:render` | Genera APK debug para la app que abre Render. |
+| `npm run mobile:build:hostless` | Genera APK debug para la app que abre Hostless. |
+| `npm run mobile:release` | Genera los dos APK release firmados para instalacion directa. |
 
 ## 12. Instalador y migraciones
 
@@ -306,17 +306,38 @@ Las direcciones de produccion son:
 - Render: `https://sistema-asistencia-2os4.onrender.com`
 - Hostless: `https://sistema-ineligente.hostless.app`
 
-## 15. Aplicacion Android con Capacitor
+## 15. Aplicaciones Android con Trusted Web Activity
 
-La configuracion actual esta en `capacitor.config.ts`, con ID `com.sistema.asistencia`, nombre `Sistema Asistencia`, `webDir` `www` y una URL remota HTTPS. La app necesita internet y el servidor publicado disponible; no incluye una copia offline del servidor Express ni de PostgreSQL.
+El proyecto define dos sabores Android en `android/app/build.gradle`:
+
+| Sabor | Identificador | Servidor |
+|---|---|---|
+| `render` | `com.sistema.asistencia` | `https://sistema-asistencia-2os4.onrender.com` |
+| `hostless` | `com.sistema.asistencia.hostless` | `https://sistema-ineligente.hostless.app` |
+
+Cada sabor define la URL de inicio, el host aceptado para enlaces HTTPS y la declaracion web
+`asset_statements`. Los dos APK se pueden instalar a la vez y requieren internet; no incluyen el
+servidor Express ni PostgreSQL.
 
 Flujo local documentado:
 
 ```powershell
 npm ci
-npm run mobile:sync
-npm run mobile:open
+npm run mobile:build:render
+npm run mobile:build:hostless
 ```
+
+Los dos sabores incluyen el emblema del sitio como icono y pantalla de inicio. El comando
+`npm run mobile:release` genera APK release firmados para instalacion directa en
+`android/app/build/outputs/apk`. La clave vive fuera de Git en
+`%USERPROFILE%\.gradle\asistencia\asistencia-release.p12`; sus parametros se guardan en
+`%USERPROFILE%\.gradle\asistencia-signing.properties`. Conserva esa
+clave: las actualizaciones de las apps instaladas deben mantener la misma firma.
+
+El codigo del servidor prepara `/.well-known/assetlinks.json` por dominio con la huella SHA-256
+publica de la clave. Tras desplegarlo, Chrome usa esa relacion para verificar el APK y mostrar la
+pagina web a pantalla completa; antes, el navegador muestra una pestana con controles. Revisa las
+dos URL tras desplegar: la de Render y la de Hostless documentadas en el README.
 
 Android Studio, JDK y Android SDK deben estar instalados para compilar/ejecutar el proyecto nativo. La configuracion revisada incluye plataforma Android; no hay plataforma iOS configurada en este repositorio. La compilacion iOS requeriria incorporar esa plataforma y un entorno macOS con Xcode.
 

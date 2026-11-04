@@ -29,7 +29,7 @@ La regla pura esta en [src/alertas.js](src/alertas.js). Las consultas de seguimi
 - PostgreSQL en Neon, con `pg` y consultas parametrizadas.
 - Configuracion general en `src/config.js`; secretos exclusivamente en `.env`.
 - Bootstrap 5 y CSS del proyecto.
-- Aplicacion Android con Capacitor que abre el sistema web desplegado.
+- Dos aplicaciones Android con Trusted Web Activity, una por cada dominio publicado.
 - Navegacion inferior tactil en telefonos para asistencia, alertas, reportes y gestion.
 
 Node escucha siempre en `0.0.0.0:$PORT` (por defecto `3000`) para que el proxy de Render pueda
@@ -71,6 +71,13 @@ y doble confirmacion: `npm run db:setup -- --forzar --confirmar`.
 
 **Seguridad de credenciales:** la URI fue compartida en una conversacion. Rota su contrasena en
 Neon antes de usar la base con datos reales y actualiza solo el `.env` local.
+
+## Paginas web del proyecto
+
+- [Version en Render](https://sistema-asistencia-2os4.onrender.com)
+- [Version en Hostless](https://sistema-ineligente.hostless.app)
+
+Ambas direcciones abren el sistema de asistencia escolar.
 
 ## Despliegue en Render
 
@@ -116,35 +123,39 @@ confianza en el proxy HTTPS. No ejecutes `npm run db:setup` en cada despliegue.
 Despues de desplegar, verifica `https://sistema-ineligente.hostless.app/health` y el formulario
 `/login` por HTTPS. La guia oficial describe el [despliegue de apps Express en Hostless](https://docs.hostless.cloud/javascript/express).
 
-## Aplicacion Android
+## Aplicaciones Android instalables
 
-La app Capacitor reutiliza el sitio Express publicado por Render; requiere internet y no funciona
-como copia local sin conexion. Configura `CAPACITOR_SERVER_URL` en `.env` con la URL HTTPS publica
-real del servicio antes de generar el APK. El valor de ejemplo en `.env.example` corresponde al
-nombre del servicio de `render.yaml`; si Render asigno otro dominio, reemplazalo.
+El proyecto genera dos APK release firmados, con identificadores distintos para que se puedan
+instalar simultaneamente. `render` abre Render (`com.sistema.asistencia`) y `hostless` abre
+Hostless (`com.sistema.asistencia.hostless`). Ambos requieren internet, usan Trusted Web Activity y
+muestran el emblema del sitio como icono y pantalla de inicio.
 
-Con Android Studio, Java y el Android SDK instalados, ejecuta:
+En Windows, con JDK 21 y Android SDK instalados, ejecuta:
 
 ```powershell
 npm ci
-npm run mobile:sync
-npm run mobile:open
+npm run mobile:release
 ```
 
-En Android Studio, selecciona un emulador o dispositivo y ejecuta la app. El identificador Android
-es `com.sistema.asistencia`; no lo cambies despues de distribuir la aplicacion.
+Los APK release quedan en:
 
-Para generar un APK de demostracion desde Windows, sincroniza Capacitor y compila el modulo Android:
+- Render: `android/app/build/outputs/apk/render/release/app-render-release.apk`
+- Hostless: `android/app/build/outputs/apk/hostless/release/app-hostless-release.apk`
 
-```powershell
-npm run mobile:sync
-cd android
-.\gradlew.bat assembleDebug
-```
+Se instalan directamente en Android. La clave de firma se conserva fuera del repositorio en
+`%USERPROFILE%\.gradle\asistencia\asistencia-release.p12`; su configuracion esta en
+`%USERPROFILE%\.gradle\asistencia-signing.properties`. Protege y respalda la clave y sus
+contrasenas: las futuras actualizaciones de estas apps deben usar la misma clave. Nunca las subas
+a Git.
 
-El archivo queda en `android/app/build/outputs/apk/debug/app-debug.apk`. La navegacion inferior se
-muestra en telefonos; en el menu superior siguen disponibles la cuenta y el cierre de sesion. La app
-necesita internet y una URL publicada en `CAPACITOR_SERVER_URL` para iniciar sesion y guardar datos.
+El codigo del servidor prepara `/.well-known/assetlinks.json` con el paquete Android y la huella
+publica de esa clave. Al desplegar este cambio, la asociacion permitira que el navegador verifique
+el dominio y abra la web a pantalla completa. Comprueba estas dos direcciones despues del despliegue:
+
+- <https://sistema-asistencia-2os4.onrender.com/.well-known/assetlinks.json>
+- <https://sistema-ineligente.hostless.app/.well-known/assetlinks.json>
+
+Mientras la ruta no este publicada, Android abre el contenido en una pestana del navegador.
 
 ## Cero confianza
 

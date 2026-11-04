@@ -44,6 +44,22 @@ app.use(helmet({
     },
   },
 }));
+
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  const aplicacion = config.androidAssetLinksByHost[req.hostname.toLowerCase()];
+  if (!aplicacion) return res.sendStatus(404);
+
+  res.set('Cache-Control', 'public, max-age=3600');
+  return res.json([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: {
+      namespace: 'android_app',
+      package_name: aplicacion.packageName,
+      sha256_cert_fingerprints: [aplicacion.sha256CertFingerprint],
+    },
+  }]);
+});
+
 app.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
 app.use(express.json({ limit: '260kb', type: 'application/json' }));
 app.use(express.static(path.join(carpetaProyecto, 'assets'), { index: false, dotfiles: 'deny' }));

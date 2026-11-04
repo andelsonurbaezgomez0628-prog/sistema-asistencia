@@ -1,5 +1,17 @@
 import 'dotenv/config';
 
+// La huella es publica: Digital Asset Links la usa para asociar la web con los APK firmados.
+const androidAssetLinksByHost = Object.freeze({
+  'sistema-asistencia-2os4.onrender.com': Object.freeze({
+    packageName: 'com.sistema.asistencia',
+    sha256CertFingerprint: '68:97:04:AA:70:B4:85:87:A8:8D:18:E3:72:27:7C:44:0B:28:C3:CA:6B:67:F0:A3:56:B6:1E:50:C6:AA:79:3B',
+  }),
+  'sistema-ineligente.hostless.app': Object.freeze({
+    packageName: 'com.sistema.asistencia.hostless',
+    sha256CertFingerprint: '68:97:04:AA:70:B4:85:87:A8:8D:18:E3:72:27:7C:44:0B:28:C3:CA:6B:67:F0:A3:56:B6:1E:50:C6:AA:79:3B',
+  }),
+});
+
 function requerido(nombre, variables) {
   const valor = variables[nombre];
   if (!valor) throw new Error(`${nombre} debe configurarse en .env.`);
@@ -39,6 +51,7 @@ export function crearConfiguracion(variables = process.env) {
     sessionSecret,
     cookieSecure: usarAjustesDeHosting,
     trustProxy: usarAjustesDeHosting,
+    androidAssetLinksByHost,
   });
 }
 

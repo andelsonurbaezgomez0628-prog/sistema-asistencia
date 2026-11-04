@@ -70,6 +70,29 @@ URI de Neon. La ruta `/health` comprueba la conexion con PostgreSQL y es el cheq
 Tras publicar, abre `/health` y `/login` en cada dominio con HTTPS; confirma que la cookie de
 sesion tenga `HttpOnly`, `Secure` y `SameSite=Lax`.
 
+## Apps Android instalables
+
+Desde Windows, con JDK 21 y Android SDK instalados, genera los dos APK release firmados para
+instalacion directa:
+
+```powershell
+npm run mobile:release
+```
+
+Los archivos quedan en `android/app/build/outputs/apk/render/release/app-render-release.apk` y
+`android/app/build/outputs/apk/hostless/release/app-hostless-release.apk`. Tienen identificadores
+distintos y se pueden instalar simultaneamente. Tambien se pueden generar APK debug para pruebas
+con `npm run mobile:build:render` y `npm run mobile:build:hostless`.
+
+El icono y la pantalla inicial usan el emblema publicado en la pagina web. La clave privada se
+guarda fuera de Git en `%USERPROFILE%\.gradle\asistencia\asistencia-release.p12` y la
+configuracion esta en `%USERPROFILE%\.gradle\asistencia-signing.properties`. Respalda la clave
+de forma segura: se necesita para actualizar las apps instaladas.
+
+Despues de desplegar el servidor, verifica que cada sitio devuelva su declaracion Digital Asset
+Links en `/.well-known/assetlinks.json`; contiene el nombre del paquete y la huella publica que
+comprueba la firma del APK.
+
 ## 3. Instalador PostgreSQL
 
 `npm run db:setup` usa la misma `DATABASE_URL` que la aplicacion. Si las seis tablas base ya

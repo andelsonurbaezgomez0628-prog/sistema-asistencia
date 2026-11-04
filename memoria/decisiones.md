@@ -414,3 +414,48 @@ Express confie en el proxy HTTPS de Hostless.
 - **Verificacion previa:** ambas URL respondieron HTTP 200 en `/health` y `/login`; Render ya
   entrega `HttpOnly`, `Secure` y `SameSite=Lax`. Hostless aun no marcaba la cookie `Secure`; la
   configuracion nueva lo corregira al desplegar la rama con `hostless.yaml`.
+
+## 2026-11-04 - Dos apps Android
+
+**Decision:** compilar dos sabores Android desde el mismo modulo nativo, con identificadores
+distintos para instalarlos simultaneamente. `render` conserva `com.sistema.asistencia` y abre
+Render; `hostless` usa `com.sistema.asistencia.hostless` y su propio `capacitor.config.json` para
+abrir Hostless.
+
+- **Builds de prueba:** `npm run mobile:build:render` y `npm run mobile:build:hostless` generan APK
+  debug firmados para instalar y probar.
+- **Distribucion:** Google Play requiere builds release firmados con una clave privada controlada
+  por el equipo. No se guarda una clave de firma en el repositorio.
+- **Verificacion:** ambos APK se compilaron; sus configuraciones contienen los IDs y URL esperados.
+
+## 2026-11-04 - Logo y preparacion release Android
+
+**Decision:** usar el emblema publicado en la web como icono de launcher en las dos variantes
+Android. La compilacion release lee la clave desde variables de entorno y no desde archivos
+versionados; el build debe detenerse cuando no haya credenciales de firma completas.
+
+- **Limite de produccion:** Capacitor marca `server.url` como una opcion de recarga en vivo, no para
+  produccion. Las variantes con URL remota son paquetes de prueba hasta migrar a Trusted Web
+  Activity o a una arquitectura local/servidor compatible y asociar cada dominio con la firma.
+
+## 2026-11-04 - APK release con Trusted Web Activity
+
+**Decision:** usar Android Browser Helper para abrir cada sitio en una Trusted Web Activity. Render
+y Hostless tienen distinto package ID y URL inicial; Digital Asset Links declara en cada dominio el
+package ID correspondiente y la huella publica de la clave de firma.
+
+- **Firma:** crear una clave PKCS12 local fuera del repositorio, en
+  `%USERPROFILE%\.gradle\asistencia\asistencia-release.p12`; Gradle lee sus datos desde
+  `%USERPROFILE%\.gradle\asistencia-signing.properties`.
+- **Entrega directa:** `npm run mobile:release` genera APK release firmados para instalar sin tienda.
+- **Identidad visual:** usar el emblema del sitio en iconos Android, pantalla inicial y manifiesto
+  web.
+- **Despliegue requerido:** publicar el cambio de servidor para que cada dominio responda su ruta
+  `/.well-known/assetlinks.json`; sin esa respuesta, el navegador usa la pestana con controles.
+- **Privacidad:** desactivar el respaldo Android para esta app; el sitio no cachea paginas ni datos
+  personales de estudiantes fuera de la sesion PostgreSQL.
+- **Verificacion local:** Gradle genero ambos APK release; `apksigner` confirma firma v2, paquete y
+  huella iguales a las declaraciones del proyecto. Render y Hostless responden HTTP 200 en `/health`
+  y emiten cookies `HttpOnly`, `Secure` y `SameSite=Lax`.
+- **Pendiente de despliegue:** ambas URL responden 404 en `/.well-known/assetlinks.json` hasta que se
+  publique este cambio del servidor.

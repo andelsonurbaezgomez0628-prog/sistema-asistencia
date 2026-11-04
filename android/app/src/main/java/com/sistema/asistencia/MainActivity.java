@@ -1,5 +1,5 @@
 package com.sistema.asistencia;
 
-import com.getcapacitor.BridgeActivity;
+import com.google.androidbrowserhelper.trusted.LauncherActivity;
 
-public class MainActivity extends BridgeActivity {}
+public class MainActivity extends LauncherActivity {}
