@@ -64,6 +64,10 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Firma debug y release usan claves distintas; separar sus IDs evita conflictos al instalar.
+            applicationIdSuffix ".debug"
+        }
         release {
             if (releaseSigningConfigured) signingConfig signingConfigs.release
             minifyEnabled false

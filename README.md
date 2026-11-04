@@ -142,6 +142,10 @@ Los APK release quedan en:
 - Render: `android/app/build/outputs/apk/render/release/app-render-release.apk`
 - Hostless: `android/app/build/outputs/apk/hostless/release/app-hostless-release.apk`
 
+Los APK debug usan el sufijo `.debug` en su identificador para que puedan instalarse junto al
+release, que usa otra clave de firma. Si ya tenias instalada una version debug anterior sin ese
+sufijo, desinstalala una vez antes de instalar el release.
+
 Se instalan directamente en Android. La clave de firma se conserva fuera del repositorio en
 `%USERPROFILE%\.gradle\asistencia\asistencia-release.p12`; su configuracion esta en
 `%USERPROFILE%\.gradle\asistencia-signing.properties`. Protege y respalda la clave y sus
