@@ -69,6 +69,17 @@ El instalador crea esquema, demo y sesiones solo si la base esta vacia. Conserva
 existentes; si detecta un esquema parcial se detiene. La operacion destructiva requiere respaldo
 y doble confirmacion: `npm run db:setup -- --forzar --confirmar`.
 
+### Rendimiento y migraciones
+
+- Las paginas piden en paralelo las consultas independientes y la asistencia se guarda en un solo
+  lote con `unnest`, sin repetir la fecha de negocio por estudiante.
+- `npm run db:setup` aplica `sql/migracion_rendimiento.sql`, que agrega los indices de reportes y
+  alertas a bases ya instaladas sin borrar datos.
+- Una lectura que falla por un corte transitorio de Neon se reintenta una sola vez; una consulta
+  que supera 15 segundos responde 503 con `Retry-After` en lugar de una pagina de error definitiva.
+- `assets/js/carga.js` muestra una barra superior cuando la navegacion tarda, y cada informe PDF usa
+  un bloque oculto `.pdf-reporte` con la estructura del Excel y del Word, no una copia de pantalla.
+
 **Seguridad de credenciales:** la URI fue compartida en una conversacion. Rota su contrasena en
 Neon antes de usar la base con datos reales y actualiza solo el `.env` local.
 

@@ -118,14 +118,76 @@ test('asistencia ofrece marcar presentes a toda la lista', async () => {
   assert.match(html, /data-conteo-estado="presente"/);
   assert.match(html, /Lista N°/);
   assert.match(script, /Se marcaron/);
+  assert.match(script, /Desmarcar todos/);
+  assert.match(script, /todaLaListaEstaPresente/);
   assert.match(script, /estado-\$\{estado\}/);
   assert.match(script, /function actualizarContadores\(\)/);
   assert.match(script, /actualizarContadores\(\);/);
+  assert.match(html, /aria-pressed="false"/);
+  assert.match(html, /data-texto-masivo/);
+  assert.match(estilos, /\.asistencia-boton-masivo\[aria-pressed="true"\]/);
   assert.match(estilos, /\.estado-selector\.estado-presente \{ border-color: #A7F3D0; background: var\(--asist-verde-claro\);/);
   assert.match(estilos, /\.estado-selector\.estado-ausente \{ border-color: #FECACA; background: var\(--asist-rojo-claro\);/);
   assert.match(estilos, /\.estado-selector\.estado-justificado \{ border-color: #BFDBFE; background: var\(--asist-azul-claro\);/);
   assert.match(estilos, /\.estado-selector\.estado-tardanza \{ border-color: #FDE68A; background: var\(--asist-naranja-claro\);/);
   assert.match(html, /src="\/js\/asistencia\.js"/);
+});
+
+test('el PDF imprime un informe propio y no la pagina de pantalla', async () => {
+  const reportes = await readFile(new URL('../views/reportes.ejs', import.meta.url), 'utf8');
+  const estudiante = await readFile(new URL('../views/reporte-estudiante.ejs', import.meta.url), 'utf8');
+  const estilos = await readFile(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../assets/js/reportes.js', import.meta.url), 'utf8');
+
+  assert.match(reportes, /class="pdf-reporte"/);
+  assert.match(estudiante, /class="pdf-reporte"/);
+  assert.doesNotMatch(reportes, /style="/);
+  // Al imprimir solo queda visible el informe; el resto de la pagina se oculta.
+  assert.match(estilos, /body > \*:not\(\.pdf-reporte\) \{ display: none !important; \}/);
+  assert.match(estilos, /\.pdf-reporte \{ display: block !important; \}/);
+  assert.match(estilos, /\.pdf-tabla thead \{ display: table-header-group; \}/);
+  assert.match(script, /imprimirComoPdf/);
+});
+
+test('reportes renderiza el informe PDF con los totales del rango', async () => {
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/reportes.ejs', import.meta.url)), {
+    desde: '2026-10-01', hasta: '2026-11-02', hoy: '2026-11-02',
+    filas: [{
+      id: 9, nombre: 'Eva', apellido: 'Prueba', numero_lista: 1, curso: 'Quinto', seccion: 'A',
+      asistencias: 10, tardanzas: 1, ausencias: 2, justificadas: 1, dias_registrados: 14, tiene_foto: false,
+    }],
+    resumenRegistros: { presentes: 10, tardanzas: 1, ausencias: 2, justificadas: 1 },
+    totalRegistros: 14,
+    asistenciaGeneral: 79,
+    resumenCursos: [],
+    cursos: [{ id: 1, nombre: 'Quinto' }],
+    secciones: [{ id: 2, nombre: 'A', curso_id: 1, curso: 'Quinto' }],
+    idCurso: 1,
+    idSeccion: 2,
+    usuario: { id: 1, nombre: 'Docente', rol: 'docente' },
+    rutaActual: '/reportes', csrfToken: 'token-demo', flash: null,
+  });
+
+  assert.match(html, /class="pdf-reporte"/);
+  assert.match(html, /Prueba, Eva/);
+  assert.match(html, /pdf-resumen-item pdf-verde/);
+  assert.match(html, /Reporte de asistencia/);
+});
+
+test('las paginas incluyen barra de carga y bloqueo del doble envio del login', async () => {
+  const head = await readFile(new URL('../views/partials/head.ejs', import.meta.url), 'utf8');
+  const login = await readFile(new URL('../views/login.ejs', import.meta.url), 'utf8');
+  const carga = await readFile(new URL('../assets/js/carga.js', import.meta.url), 'utf8');
+  const scriptLogin = await readFile(new URL('../assets/js/login.js', import.meta.url), 'utf8');
+  const estilos = await readFile(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
+
+  assert.match(head, /src="\/js\/carga\.js"/);
+  assert.match(carga, /barra-carga-pagina/);
+  assert.match(login, /data-boton-login/);
+  assert.match(login, /data-texto-login/);
+  assert.match(login, /src="\/js\/login\.js"/);
+  assert.match(scriptLogin, /evento\.preventDefault\(\)/);
+  assert.match(estilos, /\.barra-carga-pagina/);
 });
 
 test('la barra superior muestra el rol del usuario', async () => {

@@ -152,6 +152,55 @@
       <% if (filas.length === 0) { %><p class="text-secondary reportes-sin-resultados">No hay registros para esos filtros.</p><% } %>
     </section>
   </main>
+  <% const cursoElegido = cursos.find((curso) => Number(curso.id) === idCurso); const seccionElegida = secciones.find((seccion) => Number(seccion.id) === idSeccion); %>
+  <section class="pdf-reporte">
+    <header class="pdf-cabecera">
+      <div>
+        <p class="pdf-marca">Asistencia Escolar Inteligente</p>
+        <h1>Reporte de asistencia</h1>
+        <p><strong>Período:</strong> <%= fechaCorta(desde) %> al <%= fechaCorta(hasta) %></p>
+        <p><strong>Curso:</strong> <%= cursoElegido ? cursoElegido.nombre : 'Todos' %> · <strong>Sección:</strong> <%= seccionElegida ? seccionElegida.nombre : 'Todas' %></p>
+      </div>
+      <div class="pdf-cabecera-derecha">
+        <strong>Asistencia general</strong>
+        <span><%= asistenciaGeneral %>% en el período</span>
+        <span><%= totalRegistros %> registro(s)</span>
+      </div>
+    </header>
+
+    <div class="pdf-resumen">
+      <% for (const segmento of segmentos) { %>
+        <div class="pdf-resumen-item pdf-<%= segmento.clave === 'presentes' ? 'verde' : segmento.clave === 'tardanzas' ? 'amarillo' : segmento.clave === 'ausencias' ? 'rojo' : 'azul' %>">
+          <span><%= segmento.etiqueta %></span>
+          <strong><%= segmento.valor %></strong>
+        </div>
+      <% } %>
+    </div>
+
+    <h2 class="pdf-tabla-titulo">Detalle por estudiante</h2>
+    <table class="pdf-tabla">
+      <thead>
+        <tr><th>N°</th><th>Estudiante</th><th>Curso</th><th>Sección</th><th class="pdf-numero">Asist.</th><th class="pdf-numero">Tard.</th><th class="pdf-numero">Aus.</th><th class="pdf-numero">Just.</th><th class="pdf-porcentaje">%</th></tr>
+      </thead>
+      <tbody>
+        <% for (const fila of filas) { const diasRegistradosFila = Number(fila.dias_registrados || 0); const porcentaje = diasRegistradosFila > 0 ? Math.round((Number(fila.asistencias || 0) / diasRegistradosFila) * 100) : null; %>
+          <tr>
+            <td class="pdf-numero"><%= fila.numero_lista %></td>
+            <td><%= fila.apellido %>, <%= fila.nombre %></td>
+            <td><%= fila.curso %></td>
+            <td><%= fila.seccion %></td>
+            <td class="pdf-numero"><%= fila.asistencias || 0 %></td>
+            <td class="pdf-numero"><%= fila.tardanzas || 0 %></td>
+            <td class="pdf-numero"><%= fila.ausencias || 0 %></td>
+            <td class="pdf-numero"><%= fila.justificadas || 0 %></td>
+            <td class="pdf-porcentaje"><%= porcentaje === null ? '--' : `${porcentaje}%` %></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+    <% if (filas.length === 0) { %><p class="pdf-pie">No hay registros para los filtros seleccionados.</p><% } %>
+    <p class="pdf-pie"><strong>Documento generado por Asistencia Escolar Inteligente.</strong> Tardanza cuenta como asistencia; justificado no suma al riesgo de alertas.</p>
+  </section>
   <script src="/js/reportes.js" defer></script>
 </body>
 </html>

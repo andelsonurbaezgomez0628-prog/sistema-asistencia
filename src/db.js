@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { config } from './config.js';
+import { esErrorTransitorio, esperarReintento } from './errores.js';
 
 /*
  * Acceso comun a PostgreSQL.
@@ -17,11 +18,37 @@ export const pool = new Pool({
   max: 10,
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
+  // Mantener viva la conexion y cortar consultas colgadas evita esperas sin fin.
+  keepAlive: true,
+  statement_timeout: 15000,
+  query_timeout: 15000,
 });
 
 export const db = pool;
 
-export async function consulta(sql, valores = []) {
+// Si Neon cierra una conexion inactiva, registrar el codigo sin tumbar el proceso.
+pool.on('error', (error) => {
+  console.error('[asistencia] Conexion inactiva cerrada:', JSON.stringify({
+    codigo: error.code || error.name || 'desconocido',
+  }));
+});
+
+function esLectura(sql) {
+  return /^\s*(SELECT|WITH)\b/i.test(sql);
+}
+
+async function ejecutarConsulta(sql, valores) {
   const respuesta = await db.query(sql, valores);
   return respuesta.rows;
+}
+
+export async function consulta(sql, valores = []) {
+  try {
+    return await ejecutarConsulta(sql, valores);
+  } catch (error) {
+    // Solo las lecturas son seguras de repetir; una escritura podria duplicar datos.
+    if (!esLectura(sql) || !esErrorTransitorio(error)) throw error;
+    await esperarReintento();
+    return ejecutarConsulta(sql, valores);
+  }
 }

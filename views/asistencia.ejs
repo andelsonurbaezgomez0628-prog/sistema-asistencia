@@ -52,8 +52,8 @@
         <input type="hidden" name="fecha" value="<%= fecha %>">
         <div class="asistencia-acciones">
           <p class="asistencia-ayuda mb-0">Marca a todos presentes y corrige solo los casos especiales.</p>
-          <button class="btn asistencia-boton-masivo" type="button" data-marcar-todos-presentes>
-            <%- include('partials/icono', { nombre: 'check' }) %>Marcar todos presentes
+          <button class="btn asistencia-boton-masivo" type="button" data-marcar-todos-presentes aria-pressed="false">
+            <%- include('partials/icono', { nombre: 'check' }) %><span data-texto-masivo>Marcar todos presentes</span>
           </button>
           <span class="visually-hidden" aria-live="polite" data-aviso-marcar-presentes></span>
         </div>

@@ -1320,6 +1320,19 @@ body > footer {
     color: var(--menta-fuerte);
 }
 
+/* Cuando toda la lista ya esta presente el boton cambia a rojo y pasa a desmarcar. */
+.asistencia-boton-masivo[aria-pressed="true"] {
+    border-color: #ffc2c9;
+    background: var(--asist-rojo-claro);
+    color: var(--coral-fuerte);
+}
+
+.asistencia-boton-masivo[aria-pressed="true"]:hover {
+    border-color: var(--asist-rojo);
+    background: #ffd9df;
+    color: #a81f31;
+}
+
 .asistencia-contadores {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2779,6 +2792,13 @@ body > footer {
 
 .login-boton:hover { box-shadow: 0 18px 28px -16px rgba(75, 46, 216, .8); transform: translateY(-1px); }
 
+/* Mientras se valida el acceso se bloquea un segundo toque sobre el boton. */
+.login-boton.is-loading[aria-disabled="true"] {
+    opacity: .78;
+    pointer-events: none;
+    transform: none;
+}
+
 .login-pie {
     margin: 1.1rem 0 0;
     padding-top: 1rem;
@@ -3077,4 +3097,177 @@ body > footer {
     .mobile-nav-item.active .icono { color: var(--uva); }
     .mobile-nav-item:focus-visible { outline: 3px solid var(--uva); outline-offset: 2px; }
 
+}
+
+/* ------------------------------------------------------------
+   Barra de carga entre paginas
+   Se muestra mientras el navegador espera la respuesta del servidor.
+   ------------------------------------------------------------ */
+.barra-carga-pagina {
+    position: fixed;
+    z-index: 1100;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s ease;
+}
+
+.barra-carga-pagina.is-visible { opacity: 1; }
+
+.barra-carga-pagina::before {
+    content: "";
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--uva), var(--menta));
+    animation: avance-carga 1.1s ease-in-out infinite;
+}
+
+@keyframes avance-carga {
+    0% { transform: translateX(-110%); }
+    100% { transform: translateX(270%); }
+}
+
+/* ------------------------------------------------------------
+   Informe PDF
+   La pantalla conserva sus tarjetas; al imprimir solo se muestra el
+   documento .pdf-reporte, con la estructura del Excel y del Word.
+   ------------------------------------------------------------ */
+.pdf-reporte { display: none; }
+
+@media print {
+    @page { size: A4 portrait; margin: 14mm 12mm; }
+
+    /* Ocultar todo lo de pantalla y dejar unicamente el informe imprimible. */
+    body > *:not(.pdf-reporte) { display: none !important; }
+    .pdf-reporte { display: block !important; }
+
+    html,
+    body {
+        background: #fff !important;
+        color: #1b1b2b !important;
+        font-size: 11pt;
+    }
+
+    .pdf-cabecera {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1.5rem;
+        padding-bottom: .7rem;
+        border-bottom: 2px solid #342a58;
+    }
+
+    .pdf-marca {
+        margin: 0 0 .2rem;
+        color: #6b4bff;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .pdf-cabecera h1 {
+        margin: 0 0 .25rem;
+        color: #231a45;
+        font-size: 1.7rem;
+        line-height: 1.15;
+    }
+
+    .pdf-cabecera p { margin: 0; color: #45405c; }
+
+    .pdf-cabecera-derecha { text-align: right; }
+
+    .pdf-cabecera-derecha strong { display: block; color: #231a45; font-size: .95rem; }
+
+    .pdf-cabecera-derecha span { display: block; color: #6a6480; font-size: .8rem; }
+
+    .pdf-resumen {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .55rem;
+        margin: 1rem 0;
+    }
+
+    .pdf-resumen-item {
+        padding: .5rem .6rem;
+        border: 1px solid #d9d3ea;
+        border-top: 3px solid #6b4bff;
+        border-radius: 6px;
+        background: #faf9ff;
+    }
+
+    .pdf-resumen-item span { display: block; color: #6a6480; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+    .pdf-resumen-item strong { color: #231a45; font-size: 1.1rem; }
+
+    .pdf-resumen-item.pdf-verde { border-top-color: #12b886; }
+    .pdf-resumen-item.pdf-amarillo { border-top-color: #f0a41c; }
+    .pdf-resumen-item.pdf-rojo { border-top-color: #e5485a; }
+    .pdf-resumen-item.pdf-azul { border-top-color: #2563eb; }
+
+    .pdf-tabla-titulo {
+        margin: 1rem 0 .35rem;
+        color: #231a45;
+        font-size: 1rem;
+    }
+
+    .pdf-tabla {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .82rem;
+    }
+
+    .pdf-tabla thead { display: table-header-group; }
+
+    .pdf-tabla th {
+        padding: .42rem .5rem;
+        border: 1px solid #b9b0d6;
+        background: #ece7fb;
+        color: #2b2153;
+        font-size: .72rem;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .pdf-tabla td {
+        padding: .38rem .5rem;
+        border: 1px solid #d9d3ea;
+        color: #262238;
+        vertical-align: top;
+    }
+
+    .pdf-tabla tbody tr:nth-child(even) td { background: #faf9ff; }
+    .pdf-tabla tr { break-inside: avoid; }
+    .pdf-tabla .pdf-numero { text-align: center; white-space: nowrap; }
+    .pdf-tabla .pdf-porcentaje { text-align: right; white-space: nowrap; }
+
+    .pdf-estado {
+        display: inline-block;
+        padding: .1rem .45rem;
+        border: 1px solid #cfc8e3;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 700;
+    }
+
+    .pdf-estado-presente { border-color: #9fe0c8; background: #e3fbf3; color: #067a5b; }
+    .pdf-estado-tardanza { border-color: #f2ce7d; background: #fff4d6; color: #8a5a00; }
+    .pdf-estado-ausente { border-color: #f4b3bb; background: #ffe9ec; color: #a81f31; }
+    .pdf-estado-justificado { border-color: #a9c4f7; background: #e7efff; color: #1e4fa8; }
+
+    .pdf-pie {
+        margin-top: 1rem;
+        padding-top: .5rem;
+        border-top: 1px solid #d9d3ea;
+        color: #6a6480;
+        font-size: .72rem;
+    }
+
+    .pdf-pie strong { color: #45405c; }
 }

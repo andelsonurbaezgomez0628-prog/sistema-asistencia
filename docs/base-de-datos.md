@@ -21,7 +21,9 @@ npm run db:setup -- --forzar --confirmar
 ```
 
 El instalador aplica tambien `sql/migracion_fotos.sql`, que agrega campos `BYTEA` opcionales para
-fotos de usuarios y estudiantes sin borrar datos existentes.
+fotos de usuarios y estudiantes sin borrar datos existentes, y `sql/migracion_rendimiento.sql`,
+que crea indices para filtrar asistencia por fecha y estado y para buscar alertas por estudiante
+y dia de deteccion. Ambos usan `IF NOT EXISTS`, por lo que se pueden repetir sin duplicar objetos.
 
 ## 2. Relaciones
 

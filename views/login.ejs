@@ -42,11 +42,13 @@
             <label class="form-label" for="clave">Contraseña</label>
             <input class="form-control" id="clave" name="clave" type="password" autocomplete="current-password" maxlength="200" placeholder="Tu contraseña" required>
           </div>
-          <button class="btn btn-primary w-100 login-boton" type="submit">Entrar al panel <%- include('partials/icono', { nombre: 'flecha-izq', clase: 'icono-volteado' }) %></button>
+          <button class="btn btn-primary w-100 login-boton" type="submit" data-boton-login><span data-texto-login>Entrar al panel</span> <%- include('partials/icono', { nombre: 'flecha-izq', clase: 'icono-volteado' }) %></button>
+          <span class="visually-hidden" aria-live="polite" data-aviso-login></span>
         </form>
         <p class="login-pie mb-0">Acceso seguro para docentes y coordinación.</p>
       </div>
     </section>
   </main>
+  <script src="/js/login.js" defer></script>
 </body>
 </html>

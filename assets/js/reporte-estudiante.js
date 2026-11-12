@@ -119,12 +119,27 @@ function exportarWord() {
   descargarArchivo(`\uFEFF${documento}`, 'application/msword;charset=utf-8', 'doc');
 }
 
+/* El navegador usa el titulo de la pagina como nombre sugerido del PDF. */
+function imprimirComoPdf(nombreArchivo) {
+  const tituloOriginal = document.title;
+  const restaurarTitulo = () => {
+    document.title = tituloOriginal;
+    window.removeEventListener('afterprint', restaurarTitulo);
+  };
+  window.addEventListener('afterprint', restaurarTitulo);
+  document.title = nombreArchivo;
+  window.print();
+}
+
 function prepararExportacion() {
   if (!controlesExportacion) return;
 
   controlesExportacion.addEventListener('click', (evento) => {
     const formato = evento.target.closest('[data-exportar]')?.dataset.exportar;
-    if (formato === 'pdf') window.print();
+    if (formato === 'pdf') {
+      const { estudiante, desde, hasta } = controlesExportacion.dataset;
+      imprimirComoPdf(`Asistencia - ${estudiante} - ${desde} al ${hasta}`);
+    }
     if (formato === 'excel') exportarExcel();
     if (formato === 'word') exportarWord();
   });

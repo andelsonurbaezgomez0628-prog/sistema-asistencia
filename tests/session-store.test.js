@@ -45,6 +45,21 @@ test('guarda una sesion serializada con expiracion', async () => {
   }
 });
 
+test('una sesion con JSON danado se trata como inexistente', async () => {
+  const db = {
+    async query() {
+      return { rows: [{ data: '{no-es-json' }] };
+    },
+  };
+  const store = new PostgresSessionStore(db, 60000);
+  try {
+    const sesion = await esperarCallback((callback) => store.get('sesion-danada', callback));
+    assert.equal(sesion, null);
+  } finally {
+    store.close();
+  }
+});
+
 test('elimina una sesion al cerrar sesion', async () => {
   const db = {
     async query(sql, valores) {

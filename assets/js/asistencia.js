@@ -55,10 +55,32 @@ function actualizarContadores() {
   }
 }
 
+// La lista completa esta en presente cuando todos los selectores tienen ese valor.
+function todaLaListaEstaPresente() {
+  return selectoresAsistencia.length > 0
+    && selectoresAsistencia.every((selector) => selector.value === 'presente');
+}
+
+/*
+ * El mismo boton cumple dos funciones:
+ * - Si la lista no esta completa, marca a todos presentes.
+ * - Si todos ya estan presentes, los desmarca para corregir la lista.
+ * El atributo aria-pressed informa el estado y activa el color rojo en CSS.
+ */
+function actualizarBotonMasivo() {
+  if (!botonMarcarPresentes) return;
+
+  const desmarcar = todaLaListaEstaPresente();
+  botonMarcarPresentes.setAttribute('aria-pressed', String(desmarcar));
+  const texto = botonMarcarPresentes.querySelector('[data-texto-masivo]');
+  if (texto) texto.textContent = desmarcar ? 'Desmarcar todos' : 'Marcar todos presentes';
+}
+
 /* Cambios hechos por el docente */
 function actualizarFilaAsistencia(selector) {
   actualizarPresentacionEstado(selector);
   actualizarContadores();
+  actualizarBotonMasivo();
 }
 
 for (const selector of selectoresAsistencia) {
@@ -67,16 +89,25 @@ for (const selector of selectoresAsistencia) {
 }
 
 actualizarContadores();
+actualizarBotonMasivo();
 
 if (botonMarcarPresentes) {
   botonMarcarPresentes.addEventListener('click', () => {
+    const desmarcar = todaLaListaEstaPresente();
+    const nuevoValor = desmarcar ? '' : 'presente';
+
     for (const selector of selectoresAsistencia) {
-      selector.value = 'presente';
+      selector.value = nuevoValor;
       selector.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
+    // El evento change ya actualiza el boton; se repite por si no hubo selectores.
+    actualizarBotonMasivo();
+
     if (avisoMarcarPresentes) {
-      avisoMarcarPresentes.textContent = `Se marcaron ${selectoresAsistencia.length} estudiantes como presentes. Revisa y guarda la lista.`;
+      avisoMarcarPresentes.textContent = desmarcar
+        ? `Se desmarcaron ${selectoresAsistencia.length} estudiantes. Elige el estado de cada uno.`
+        : `Se marcaron ${selectoresAsistencia.length} estudiantes como presentes. Revisa y guarda la lista.`;
     }
   });
 }

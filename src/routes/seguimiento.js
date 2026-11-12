@@ -231,27 +231,23 @@ function validarEntradasAsistencia(datosFormulario, estudiantes) {
  * Alerta de un estudiante: consultar ventana de 30 dias, aplicar la regla pura
  * y actualizar la alerta pendiente del dia dentro de la transaccion actual.
  */
-async function calcularAlerta(conexion, idEstudiante) {
-  // PostgreSQL define la fecha local de negocio y el periodo incluye hoy y 29 dias previos.
-  const { rows: [{ hoy }] } = await conexion.query('SELECT CURRENT_DATE AS hoy');
+async function calcularAlerta(conexion, idEstudiante, hoy = null) {
+  // La fecha se recibe del lote cuando se guardan varios estudiantes; si falta, se consulta.
+  const fechaHoy = hoy
+    || (await conexion.query('SELECT CURRENT_DATE AS hoy')).rows[0].hoy;
 
-  // Contar faltas y tardanzas, y obtener las fechas que sirven para calcular la racha.
+  // Una sola consulta obtiene los conteos y las fechas que explican la racha.
   // Solo se cuenta 'ausente'; una falta justificada no aumenta el riesgo.
   const { rows: [conteo] } = await conexion.query(
     `SELECT COUNT(*) FILTER (WHERE estado = 'ausente') AS faltas,
-       COUNT(*) FILTER (WHERE estado = 'tardanza') AS tardanzas
+       COUNT(*) FILTER (WHERE estado = 'tardanza') AS tardanzas,
+       ARRAY_AGG(fecha ORDER BY fecha) FILTER (WHERE estado = 'ausente') AS fechas_ausente
      FROM asistencia WHERE estudiante_id = $1 AND fecha BETWEEN $2::date - 29 AND $3::date`,
-    [idEstudiante, hoy, hoy],
-  );
-  const { rows: filasFechas } = await conexion.query(
-    `SELECT fecha FROM asistencia
-     WHERE estudiante_id = $1 AND estado = 'ausente'
-       AND fecha BETWEEN $2::date - 29 AND $3::date`,
-    [idEstudiante, hoy, hoy],
+    [idEstudiante, fechaHoy, fechaHoy],
   );
   const faltas = Number(conteo.faltas || 0);
   const tardanzas = Number(conteo.tardanzas || 0);
-  const racha = calcula_racha_maxima(filasFechas.map((fila) => fila.fecha));
+  const racha = calcula_racha_maxima(conteo.fechas_ausente || []);
   // La regla pura decide el nivel; esta funcion solo sincroniza el resultado con la base.
   const riesgo = clasificar_riesgo(faltas, tardanzas, racha);
 
@@ -259,7 +255,7 @@ async function calcularAlerta(conexion, idEstudiante) {
   const { rows: alertasHoy } = await conexion.query(
     `SELECT id FROM alertas
      WHERE estudiante_id = $1 AND fecha_deteccion = $2 AND estado = 'pendiente' LIMIT 1`,
-    [idEstudiante, hoy],
+    [idEstudiante, fechaHoy],
   );
 
   if (alertasHoy.length > 0) {
@@ -280,7 +276,7 @@ async function calcularAlerta(conexion, idEstudiante) {
       `INSERT INTO alertas
        (estudiante_id, nivel, faltas_30_dias, racha_maxima, mensaje, fecha_deteccion)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [idEstudiante, riesgo.nivel, faltas, racha, riesgo.mensaje, hoy],
+      [idEstudiante, riesgo.nivel, faltas, racha, riesgo.mensaje, fechaHoy],
     );
   }
 
@@ -293,9 +289,13 @@ async function calcularAlerta(conexion, idEstudiante) {
  */
 router.get('/asistencia', requerirLogin, async (req, res, next) => {
   try {
-    const secciones = await seccionesDisponibles(req.user);
+    // Las secciones y la fecha de negocio son independientes: se piden en paralelo.
+    const [secciones, filaHoy] = await Promise.all([
+      seccionesDisponibles(req.user),
+      consulta('SELECT CURRENT_DATE AS hoy'),
+    ]);
+    const hoy = filaHoy[0].hoy;
     const idSeccion = validarId(req.query.seccion) || Number(secciones[0]?.id || 0);
-    const { rows: [{ hoy }] } = await db.query('SELECT CURRENT_DATE AS hoy');
     const fecha = esFechaValida(req.query.fecha) ? req.query.fecha : hoy;
     const seccionPermitida = secciones.some((seccion) => Number(seccion.id) === idSeccion);
     if (idSeccion && !seccionPermitida) {
@@ -370,18 +370,24 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       return res.status(400).render('error', { mensaje: 'La observacion no es valida.' });
     }
 
-    // Guardar cada marca y recalcular su alerta dentro de la misma transaccion.
+    // Guardar todas las marcas en una sola operacion y recalcular alertas dentro de la transaccion.
+    const entradas = validacionEntradas.entradas;
+    await conexion.query(
+      `INSERT INTO asistencia (estudiante_id, fecha, estado, observacion, creado_por)
+       SELECT * FROM unnest($1::int[], $2::date[], $3::text[], $4::text[], $5::int[])
+       ON CONFLICT (estudiante_id, fecha)
+       DO UPDATE SET estado = EXCLUDED.estado, observacion = EXCLUDED.observacion`,
+      [
+        entradas.map((entrada) => Number(entrada.id)),
+        entradas.map(() => fecha),
+        entradas.map((entrada) => entrada.estado),
+        entradas.map((entrada) => (entrada.observacion || '').trim().slice(0, 255) || null),
+        entradas.map(() => req.user.id),
+      ],
+    );
     let conRiesgo = 0;
-    for (const { id, estado, observacion } of validacionEntradas.entradas) {
-      const observacionLimpia = (observacion || '').trim().slice(0, 255) || null;
-      await conexion.query(
-        `INSERT INTO asistencia (estudiante_id, fecha, estado, observacion, creado_por)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (estudiante_id, fecha)
-        DO UPDATE SET estado = EXCLUDED.estado, observacion = EXCLUDED.observacion`,
-        [Number(id), fecha, estado, observacionLimpia, req.user.id],
-      );
-      const riesgo = await calcularAlerta(conexion, Number(id));
+    for (const { id } of entradas) {
+      const riesgo = await calcularAlerta(conexion, Number(id), hoy);
       if (riesgo.nivel !== 'bajo') conRiesgo += 1;
     }
 
@@ -458,10 +464,12 @@ router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (req, res,
   try {
     // Recalcular todas las cuentas activas como una sola operacion confirmable.
     await conexion.query('BEGIN');
+    // Una sola lectura de la fecha evita repetirla por cada estudiante.
+    const { rows: [{ hoy }] } = await conexion.query('SELECT CURRENT_DATE AS hoy');
     const { rows: estudiantes } = await conexion.query('SELECT id FROM estudiantes WHERE activo IS TRUE');
     let conRiesgo = 0;
     for (const estudiante of estudiantes) {
-      const riesgo = await calcularAlerta(conexion, estudiante.id);
+      const riesgo = await calcularAlerta(conexion, estudiante.id, hoy);
       if (riesgo.nivel !== 'bajo') conRiesgo += 1;
     }
     await conexion.query('COMMIT');
@@ -577,9 +585,10 @@ router.get('/reportes/estudiantes/:id', requerirLogin, async (req, res, next) =>
   const idEstudiante = validarId(req.params.id);
   if (!idEstudiante) return res.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
   try {
-    const { rows: [{ hoy, iniciodefecto: inicioDefecto }] } = await db.query(
+    const [filaHoy] = await consulta(
       'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto',
     );
+    const { hoy, inicioDefecto } = filaHoy;
     const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
     const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
     if (desde > hasta) return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
@@ -588,45 +597,49 @@ router.get('/reportes/estudiantes/:id', requerirLogin, async (req, res, next) =>
       ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $2)'
       : '';
     if (req.user.rol === 'docente') valoresEstudiante.push(req.user.id);
-    const estudiante = await consulta(
-      `SELECT e.id, e.nombre, e.apellido, e.numero_lista, e.foto_data IS NOT NULL AS tiene_foto, s.nombre AS seccion, c.nombre AS curso
-       FROM estudiantes e INNER JOIN secciones s ON s.id = e.seccion_id
-       INNER JOIN cursos c ON c.id = s.curso_id
-       WHERE e.id = $1 AND e.activo IS TRUE ${permisoDocente} LIMIT 1`, valoresEstudiante,
-    );
+    // Identidad e historial no dependen entre si: se consultan al mismo tiempo.
+    const [estudiante, historial] = await Promise.all([
+      consulta(
+        `SELECT e.id, e.nombre, e.apellido, e.numero_lista, e.foto_data IS NOT NULL AS tiene_foto, s.nombre AS seccion, c.nombre AS curso
+         FROM estudiantes e INNER JOIN secciones s ON s.id = e.seccion_id
+         INNER JOIN cursos c ON c.id = s.curso_id
+         WHERE e.id = $1 AND e.activo IS TRUE ${permisoDocente} LIMIT 1`, valoresEstudiante,
+      ),
+      consulta(
+        `SELECT fecha, estado, observacion FROM asistencia
+         WHERE estudiante_id = $1 AND fecha BETWEEN $2 AND $3 ORDER BY fecha DESC`, [idEstudiante, desde, hasta],
+      ),
+    ]);
     if (!estudiante[0]) return res.status(404).render('error', { mensaje: 'El estudiante no existe o no tienes acceso.' });
-    const historial = await consulta(
-      `SELECT fecha, estado, observacion FROM asistencia
-       WHERE estudiante_id = $1 AND fecha BETWEEN $2 AND $3 ORDER BY fecha DESC`, [idEstudiante, desde, hasta],
-    );
     return res.render('reporte-estudiante', { estudiante: estudiante[0], historial, desde, hasta, hoy });
   } catch (error) { return next(error); }
 });
 
 router.get('/reportes', requerirLogin, async (req, res, next) => {
   try {
-    // Usar fechas de PostgreSQL y limitar por defecto la consulta a los ultimos 30 dias.
-    const { rows: [{ hoy, iniciodefecto: inicioDefecto }] } = await db.query(
-      'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto',
-    );
+    // La fecha de negocio, las secciones y los cursos no dependen entre si.
+    const [filaHoy, secciones, cursos] = await Promise.all([
+      consulta('SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto'),
+      seccionesDisponibles(req.user),
+      req.user.rol === 'admin'
+        ? consulta('SELECT id, nombre FROM cursos ORDER BY nombre')
+        : consulta(
+          `SELECT DISTINCT c.id, c.nombre FROM cursos c
+           INNER JOIN secciones s ON s.curso_id = c.id
+           INNER JOIN seccion_docentes sd ON sd.seccion_id = s.id
+           WHERE sd.docente_id = $1 ORDER BY c.nombre`,
+          [req.user.id],
+        ),
+    ]);
+    const { hoy, inicioDefecto } = filaHoy[0];
     const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
     const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
     if (desde > hasta) {
       return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
     }
-    // Limpiar los IDs antes de usarlos y cargar solo cursos/secciones del alcance permitido.
+    // Limpiar los IDs antes de usarlos; secciones y cursos ya respetan el alcance autorizado.
     const idCurso = validarId(typeof req.query.curso === 'string' ? req.query.curso : '');
     const idSeccion = validarId(typeof req.query.seccion === 'string' ? req.query.seccion : '');
-    const secciones = await seccionesDisponibles(req.user);
-    const cursos = req.user.rol === 'admin'
-      ? await consulta('SELECT id, nombre FROM cursos ORDER BY nombre')
-      : await consulta(
-        `SELECT DISTINCT c.id, c.nombre FROM cursos c
-         INNER JOIN secciones s ON s.curso_id = c.id
-         INNER JOIN seccion_docentes sd ON sd.seccion_id = s.id
-         WHERE sd.docente_id = $1 ORDER BY c.nombre`,
-        [req.user.id],
-      );
 
     // Armar condiciones con placeholders para que los filtros no formen SQL libre.
     const valores = [desde, hasta];

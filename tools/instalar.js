@@ -115,6 +115,7 @@ try {
   await migrarNumeroLista();
   await migrarDocentesSeccion();
   await ejecutarArchivo('migracion_fotos.sql');
+  await ejecutarArchivo('migracion_rendimiento.sql');
   await ejecutarArchivo('sesiones.sql');
   if (esReinstalacionForzada) await pool.query('DELETE FROM sesiones');
 

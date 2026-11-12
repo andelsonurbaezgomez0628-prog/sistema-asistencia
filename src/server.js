@@ -7,12 +7,14 @@ import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import { pool, consulta } from './db.js';
 import { config } from './config.js';
+import { esErrorTransitorio } from './errores.js';
 import { PostgresSessionStore } from './session-store.js';
 import seguimiento from './routes/seguimiento.js';
 import administracion from './routes/administracion.js';
 import {
   crearCargarUsuarioActual,
   crearTokenCsrf,
+  estadoTokenCsrf,
   protegerCsrf,
   requerirLogin,
 } from './security.js';
@@ -63,7 +65,12 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
 
 app.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
 app.use(express.json({ limit: '260kb', type: 'application/json' }));
-app.use(express.static(path.join(carpetaProyecto, 'assets'), { index: false, dotfiles: 'deny' }));
+app.use(express.static(path.join(carpetaProyecto, 'assets'), {
+  index: false,
+  dotfiles: 'deny',
+  // CSS y JavaScript pequenos se reutilizan; una cache corta acelera la navegacion.
+  maxAge: '5m',
+}));
 // El store PostgreSQL se configura antes de las rutas para que cada solicitud tenga sesion persistida.
 app.use(session({
   name: 'asistencia.sid',
@@ -88,6 +95,8 @@ app.use((req, res, next) => {
   res.locals.usuario = null;
   res.locals.flash = req.session.flash || null;
   delete req.session.flash;
+  // Una pagina vieja en cache puede traer un token CSRF que ya no corresponde.
+  res.set('Cache-Control', 'no-store');
   next();
 });
 app.use(crearCargarUsuarioActual(consulta));
@@ -137,7 +146,15 @@ app.get('/login', (req, res) => {
   return res.render('login', { error: null });
 });
 
-app.post('/login', limiteLogin, protegerCsrf, async (req, res, next) => {
+// Un doble toque en "Entrar" puede reutilizar una sesion recien regenerada.
+// En ese caso se vuelve al formulario con un token nuevo, no a una pagina de error.
+function validarCsrfLogin(req, res, next) {
+  if (estadoTokenCsrf(req) === 'valido') return next();
+  req.session.flash = 'La sesion se renovo. Intenta iniciar sesion de nuevo.';
+  return res.redirect('/login');
+}
+
+app.post('/login', limiteLogin, validarCsrfLogin, async (req, res, next) => {
   const { usuario, clave } = obtenerCredenciales(req);
 
   if (!usuario || !clave || usuario.length > 50 || clave.length > 200) {
@@ -243,6 +260,12 @@ app.use((error, req, res, next) => {
     codigo: error.code || error.name || 'desconocido',
   }));
   if (res.headersSent) return next(error);
+
+  // Un corte de red o una consulta cancelada se informa como reintento, no como fallo definitivo.
+  if (esErrorTransitorio(error) || error.code === '57014') {
+    res.set('Retry-After', '5');
+    return res.status(503).render('error', { mensaje: 'La conexion tardo demasiado. Intenta nuevamente.' });
+  }
   return res.status(500).render('error', { mensaje: 'Ocurrio un error. Intenta nuevamente.' });
 });
 

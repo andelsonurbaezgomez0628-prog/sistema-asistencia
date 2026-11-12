@@ -126,6 +126,18 @@ function descargarWord() {
   descargarArchivo(`\uFEFF${documento}`, 'application/msword;charset=utf-8', 'doc');
 }
 
+/* El navegador usa el titulo de la pagina como nombre sugerido del PDF. */
+function imprimirComoPdf(nombreArchivo) {
+  const tituloOriginal = document.title;
+  const restaurarTitulo = () => {
+    document.title = tituloOriginal;
+    window.removeEventListener('afterprint', restaurarTitulo);
+  };
+  window.addEventListener('afterprint', restaurarTitulo);
+  document.title = nombreArchivo;
+  window.print();
+}
+
 function prepararExportacion() {
   if (!botonExportarReporte) return;
 
@@ -133,7 +145,10 @@ function prepararExportacion() {
     const boton = evento.target.closest('[data-exportar]');
     const formato = boton?.dataset.exportar;
 
-    if (formato === 'pdf') window.print();
+    if (formato === 'pdf') {
+      const { desde, hasta } = botonExportarReporte.dataset;
+      imprimirComoPdf(`Reporte de asistencia ${desde} al ${hasta}`);
+    }
     if (formato === 'excel') descargarExcel();
     if (formato === 'word') descargarWord();
   });

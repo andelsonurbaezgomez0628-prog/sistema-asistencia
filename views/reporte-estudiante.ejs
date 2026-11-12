@@ -59,6 +59,46 @@
       </div>
     </section>
   </main>
+  <% const conteoPdf = { presente: 0, tardanza: 0, ausente: 0, justificado: 0 }; for (const registro of historial) { if (Object.hasOwn(conteoPdf, registro.estado)) conteoPdf[registro.estado] += 1; } %>
+  <section class="pdf-reporte">
+    <header class="pdf-cabecera">
+      <div>
+        <p class="pdf-marca">Asistencia Escolar Inteligente</p>
+        <h1>Historial de asistencia</h1>
+        <p><strong>Estudiante:</strong> <%= estudiante.nombre %> <%= estudiante.apellido %></p>
+        <p><strong>Lista N° <%= estudiante.numero_lista %></strong> · <%= estudiante.curso %> · <%= estudiante.seccion %></p>
+      </div>
+      <div class="pdf-cabecera-derecha">
+        <strong>Período consultado</strong>
+        <span><%= fechaRango(desde) %></span>
+        <span>al <%= fechaRango(hasta) %></span>
+        <span><%= historial.length %> registro(s)</span>
+      </div>
+    </header>
+
+    <div class="pdf-resumen">
+      <div class="pdf-resumen-item pdf-verde"><span>Presentes</span><strong><%= conteoPdf.presente %></strong></div>
+      <div class="pdf-resumen-item pdf-amarillo"><span>Tardanzas</span><strong><%= conteoPdf.tardanza %></strong></div>
+      <div class="pdf-resumen-item pdf-rojo"><span>Ausencias</span><strong><%= conteoPdf.ausente %></strong></div>
+      <div class="pdf-resumen-item pdf-azul"><span>Justificadas</span><strong><%= conteoPdf.justificado %></strong></div>
+    </div>
+
+    <h2 class="pdf-tabla-titulo">Registro del período</h2>
+    <table class="pdf-tabla">
+      <thead><tr><th>Fecha</th><th>Estado</th><th>Observación</th></tr></thead>
+      <tbody>
+        <% for (const registro of historial) { %>
+          <tr>
+            <td><%= fechaLarga(registro.fecha) %></td>
+            <td><span class="pdf-estado pdf-estado-<%= registro.estado %>"><%= registro.estado.charAt(0).toUpperCase() + registro.estado.slice(1) %></span></td>
+            <td><%= registro.observacion || '—' %></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+    <% if (historial.length === 0) { %><p class="pdf-pie">No hay registros para este período.</p><% } %>
+    <p class="pdf-pie"><strong>Documento generado por Asistencia Escolar Inteligente.</strong> Tardanza cuenta como asistencia; justificado no suma al riesgo de alertas.</p>
+  </section>
   <script src="/js/reporte-estudiante.js" defer></script>
 </body>
 </html>

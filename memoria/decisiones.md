@@ -462,3 +462,31 @@ package ID correspondiente y la huella publica de la clave de firma.
 - **Correccion de arranque:** declarar `ManageDataLauncherActivity` y `android:manageSpaceActivity`
   en el manifiesto; sin ello Android Browser Helper intentaba cambiar el estado de un componente
   ausente y cerraba la app al iniciarla.
+
+## 2026-11-11 - Carga de paginas, PDF y acceso estable
+
+**Decision:** atacar la lentitud desde la base de datos, no solo desde la pantalla, y separar el
+PDF de la pagina web.
+
+- **Consultas:** las secciones, la fecha de negocio, los cursos y el historial se piden en paralelo
+  cuando no dependen entre si; la alerta se calcula con una sola consulta por estudiante y el lote
+  de asistencia se guarda con un `unnest` para no abrir una escritura por fila.
+- **Red:** `src/db.js` mantiene viva la conexion, corta consultas de mas de 15 segundos y reintenta
+  una vez solo lecturas ante cortes transitorios de Neon. Un tiempo agotado responde 503 con
+  `Retry-After` en lugar de una pagina de error definitiva.
+- **Indices:** `sql/migracion_rendimiento.sql` agrega indices de reportes y alertas a bases
+  existentes; el instalador lo aplica despues de las migraciones de fotos.
+- **Barra de carga:** `assets/js/carga.js` muestra una barra superior tras 140 ms de espera en
+  navegaciones y envios internos. Se descarto bloquear la pagina con una pantalla de carga porque
+  el contenido ya visible sigue siendo util.
+- **Boton de asistencia:** despues del primer toque, si toda la lista esta presente, el mismo boton
+  cambia a "Desmarcar todos", se pinta en rojo y usa `aria-pressed` para que el estado no dependa
+  solo del color.
+- **PDF:** Excel, Word y PDF comparten los mismos totales. El PDF imprime un bloque oculto
+  `.pdf-reporte` con cabecera, resumen y tabla; al imprimir se oculta el resto del `body`. Se
+  descarto `window.print()` sobre la pagina normal porque copiaba tarjetas, graficos y navegacion.
+- **Login:** el formulario bloquea un segundo envio mientras valida; si el CSRF falla, `POST /login`
+  vuelve al formulario con un aviso en lugar de mostrar la pagina de error. Esto evita que un doble
+  toque en el telefono cierre la Trusted Web Activity.
+- **Datos:** no cambian las reglas de alerta, los hashes demo ni el escenario de 3 cursos,
+  4 secciones, 20 estudiantes y 4 alertas pendientes.

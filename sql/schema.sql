@@ -87,3 +87,7 @@ CREATE TABLE alertas (
 );
 
 CREATE INDEX idx_alertas_estado_fecha ON alertas (estado, fecha_deteccion DESC);
+
+-- Indices de rendimiento: reportes filtran por fecha y estado; alertas buscan por estudiante y dia.
+CREATE INDEX idx_asistencia_fecha_estado ON asistencia (fecha, estado);
+CREATE INDEX idx_alertas_estudiante_fecha ON alertas (estudiante_id, fecha_deteccion DESC, estado);

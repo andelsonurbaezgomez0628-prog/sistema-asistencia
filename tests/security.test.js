@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   crearCargarUsuarioActual,
   crearTokenCsrf,
+  estadoTokenCsrf,
   protegerCsrf,
   requerirAdmin,
   requerirLogin,
@@ -46,6 +47,18 @@ test('rechaza token CSRF faltante o alterado', () => {
     assert.equal(respuesta.statusCode, 403);
     assert.equal(respuesta.vista, 'error');
   }
+});
+
+test('distingue token CSRF faltante, invalido y valido sin revelar detalles', () => {
+  assert.equal(estadoTokenCsrf({ body: {}, session: {} }), 'faltante');
+  assert.equal(
+    estadoTokenCsrf({ body: { _csrf: 'otro-token' }, session: { csrfToken: 'token-valido' } }),
+    'invalido',
+  );
+  assert.equal(
+    estadoTokenCsrf({ body: { _csrf: 'token-valido' }, session: { csrfToken: 'token-valido' } }),
+    'valido',
+  );
 });
 
 test('requiere una sesion y bloquea roles que no son admin', () => {

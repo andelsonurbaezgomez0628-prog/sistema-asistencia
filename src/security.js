@@ -6,12 +6,16 @@ export function crearTokenCsrf() {
   return randomBytes(32).toString('hex');
 }
 
-export function protegerCsrf(req, res, next) {
+/*
+ * Compara el token enviado con el de la sesion sin revelar cual fallo.
+ * Devuelve un estado para que cada ruta decida el mensaje adecuado.
+ */
+export function estadoTokenCsrf(req) {
   const tokenEnviado = req.body?._csrf;
   const tokenDeSesion = req.session?.csrfToken;
 
   if (typeof tokenEnviado !== 'string' || typeof tokenDeSesion !== 'string') {
-    return res.status(403).render('error', { mensaje: 'La solicitud vencio. Recarga la pagina.' });
+    return 'faltante';
   }
 
   // timingSafeEqual requiere buffers de igual longitud; la longitud se revisa primero.
@@ -20,7 +24,16 @@ export function protegerCsrf(req, res, next) {
   const tienenIgualLongitud = tokenEnviadoBuffer.length === tokenDeSesionBuffer.length;
   const sonIguales = tienenIgualLongitud
     && timingSafeEqual(tokenEnviadoBuffer, tokenDeSesionBuffer);
-  if (!sonIguales) {
+  return sonIguales ? 'valido' : 'invalido';
+}
+
+export function protegerCsrf(req, res, next) {
+  const estado = estadoTokenCsrf(req);
+
+  if (estado === 'faltante') {
+    return res.status(403).render('error', { mensaje: 'La solicitud vencio. Recarga la pagina.' });
+  }
+  if (estado === 'invalido') {
     return res.status(403).render('error', { mensaje: 'La solicitud no es valida.' });
   }
 

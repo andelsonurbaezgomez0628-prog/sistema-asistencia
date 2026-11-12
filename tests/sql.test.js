@@ -24,9 +24,10 @@ test('conserva comillas SQL escapadas y textos de varias lineas', () => {
 
 test('separa el numero esperado de sentencias de los SQL del proyecto', async () => {
   const archivos = [
-    ['../sql/schema.sql', 18],
+    ['../sql/schema.sql', 20],
     ['../sql/datos_demo.sql', 23],
     ['../sql/migracion_docentes_seccion.sql', 4],
+    ['../sql/migracion_rendimiento.sql', 2],
     ['../sql/sesiones.sql', 2],
   ];
 
