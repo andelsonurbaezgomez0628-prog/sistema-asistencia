@@ -494,3 +494,7 @@ PDF de la pagina web.
   reportes usa `inicio_defecto`. Con el alias camelCase la fecha inicial llegaba `undefined`:
   la tabla general salia vacia y el detalle del estudiante respondia 500. La vista tambien
   tolera una fecha invalida y muestra el valor tal cual en lugar de romper la pagina.
+- **Fechas en arreglos:** `ARRAY_AGG(fecha)` devuelve objetos `Date` aunque la columna DATE
+  suelta llegue como texto. La regla de rachas espera `YYYY-MM-DD`, asi que la consulta usa
+  `fecha::text`; sin ese cambio el guardado de la lista fallaba con `TypeError` cuando la
+  seccion tenia ausencias en los ultimos 30 dias.

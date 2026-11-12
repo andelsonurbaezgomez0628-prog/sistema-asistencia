@@ -238,10 +238,11 @@ async function calcularAlerta(conexion, idEstudiante, hoy = null) {
 
   // Una sola consulta obtiene los conteos y las fechas que explican la racha.
   // Solo se cuenta 'ausente'; una falta justificada no aumenta el riesgo.
+  // fecha::text entrega YYYY-MM-DD, el formato que espera la regla pura de rachas.
   const { rows: [conteo] } = await conexion.query(
     `SELECT COUNT(*) FILTER (WHERE estado = 'ausente') AS faltas,
        COUNT(*) FILTER (WHERE estado = 'tardanza') AS tardanzas,
-       ARRAY_AGG(fecha ORDER BY fecha) FILTER (WHERE estado = 'ausente') AS fechas_ausente
+       ARRAY_AGG(fecha::text ORDER BY fecha) FILTER (WHERE estado = 'ausente') AS fechas_ausente
      FROM asistencia WHERE estudiante_id = $1 AND fecha BETWEEN $2::date - 29 AND $3::date`,
     [idEstudiante, fechaHoy, fechaHoy],
   );

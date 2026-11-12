@@ -81,6 +81,14 @@ test('el detalle del estudiante no falla si una fecha llega vacia', async () => 
   assert.match(html, /Volver a reportes/);
 });
 
+test('la alerta recibe las fechas de ausencia como texto y no como Date', async () => {
+  // ARRAY_AGG(fecha) devuelve objetos Date, pero la regla de rachas espera YYYY-MM-DD;
+  // al guardar la lista con ausencias lanzaba TypeError y se perdia el guardado.
+  const rutas = await readFile(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
+  assert.match(rutas, /ARRAY_AGG\(fecha::text ORDER BY fecha\)/);
+  assert.doesNotMatch(rutas, /ARRAY_AGG\(fecha ORDER BY fecha\)/);
+});
+
 test('gestion renderiza la pestana para crear administradores', async () => {
   const html = await ejs.renderFile(fileURLToPath(new URL('../views/gestion.ejs', import.meta.url)), {
     cursos: [],
