@@ -61,6 +61,26 @@ test('detalle de estudiante renderiza historial y datos de navegacion', async ()
   assert.match(html, /Exportar Word/);
 });
 
+test('las rutas de reportes usan el alias en minusculas que devuelve PostgreSQL', async () => {
+  // PostgreSQL dobla los nombres sin comillas: "inicioDefecto" llegaba como undefined
+  // y dejaba el rango de reportes vacio o rompia el detalle del estudiante.
+  const rutas = await readFile(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
+  assert.match(rutas, /AS inicio_defecto/);
+  assert.doesNotMatch(rutas, /AS inicioDefecto/);
+});
+
+test('el detalle del estudiante no falla si una fecha llega vacia', async () => {
+  // Una fecha invalida antes lanzaba RangeError y devolvia la pagina de error 500.
+  const html = await ejs.renderFile(fileURLToPath(new URL('../views/reporte-estudiante.ejs', import.meta.url)), {
+    estudiante: { nombre: 'Estudiante', apellido: 'Demo', numero_lista: 1, curso: 'Curso', seccion: 'A' },
+    historial: [{ fecha: 'sin-fecha', estado: 'presente', observacion: null }],
+    desde: undefined, hasta: undefined, hoy: undefined,
+    usuario: { id: 1, nombre: 'Docente', rol: 'docente' }, rutaActual: '/reportes/estudiantes/1', csrfToken: 'token-demo', flash: null,
+  });
+  assert.match(html, /Historial de asistencia/);
+  assert.match(html, /Volver a reportes/);
+});
+
 test('gestion renderiza la pestana para crear administradores', async () => {
   const html = await ejs.renderFile(fileURLToPath(new URL('../views/gestion.ejs', import.meta.url)), {
     cursos: [],

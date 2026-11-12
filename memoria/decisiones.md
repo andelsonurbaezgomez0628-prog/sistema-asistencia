@@ -490,3 +490,7 @@ PDF de la pagina web.
   toque en el telefono cierre la Trusted Web Activity.
 - **Datos:** no cambian las reglas de alerta, los hashes demo ni el escenario de 3 cursos,
   4 secciones, 20 estudiantes y 4 alertas pendientes.
+- **Alias SQL:** PostgreSQL dobla a minusculas los alias sin comillas, asi que el rango de
+  reportes usa `inicio_defecto`. Con el alias camelCase la fecha inicial llegaba `undefined`:
+  la tabla general salia vacia y el detalle del estudiante respondia 500. La vista tambien
+  tolera una fecha invalida y muestra el valor tal cual en lugar de romper la pagina.

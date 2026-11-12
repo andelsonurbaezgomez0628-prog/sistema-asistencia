@@ -586,9 +586,10 @@ router.get('/reportes/estudiantes/:id', requerirLogin, async (req, res, next) =>
   if (!idEstudiante) return res.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
   try {
     const [filaHoy] = await consulta(
-      'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto',
+      // El alias va en minusculas porque PostgreSQL dobla los nombres sin comillas.
+      'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicio_defecto',
     );
-    const { hoy, inicioDefecto } = filaHoy;
+    const { hoy, inicio_defecto: inicioDefecto } = filaHoy;
     const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
     const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
     if (desde > hasta) return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
@@ -619,7 +620,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
   try {
     // La fecha de negocio, las secciones y los cursos no dependen entre si.
     const [filaHoy, secciones, cursos] = await Promise.all([
-      consulta('SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicioDefecto'),
+      consulta('SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicio_defecto'),
       seccionesDisponibles(req.user),
       req.user.rol === 'admin'
         ? consulta('SELECT id, nombre FROM cursos ORDER BY nombre')
@@ -631,7 +632,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
           [req.user.id],
         ),
     ]);
-    const { hoy, inicioDefecto } = filaHoy[0];
+    const { hoy, inicio_defecto: inicioDefecto } = filaHoy[0];
     const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
     const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
     if (desde > hasta) {

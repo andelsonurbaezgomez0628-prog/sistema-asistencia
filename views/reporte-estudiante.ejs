@@ -5,7 +5,25 @@
 </head>
 <body class="reportes-page">
   <%- include('partials/nav') %>
-  <% const fechaLarga = (valor) => new Intl.DateTimeFormat('es-DO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${String(valor).slice(0, 10)}T00:00:00Z`)); const fechaRango = (valor) => new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${String(valor).slice(0, 10)}T00:00:00Z`)); %>
+  <%
+    // Convierte el texto YYYY-MM-DD que envia la ruta en una fecha segura para formatear.
+    const aFecha = (valor) => {
+      const fecha = new Date(`${String(valor).slice(0, 10)}T00:00:00Z`);
+      return Number.isFinite(fecha.getTime()) ? fecha : null;
+    };
+    const fechaLarga = (valor) => {
+      const fecha = aFecha(valor);
+      return fecha
+        ? new Intl.DateTimeFormat('es-DO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(fecha)
+        : String(valor ?? '');
+    };
+    const fechaRango = (valor) => {
+      const fecha = aFecha(valor);
+      return fecha
+        ? new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(fecha)
+        : String(valor ?? '');
+    };
+  %>
   <main class="container py-4">
     <a class="btn btn-ghost mb-3" href="/reportes?desde=<%= encodeURIComponent(desde) %>&hasta=<%= encodeURIComponent(hasta) %>">← Volver a reportes</a>
     <header class="estudiante-portada mb-4">
