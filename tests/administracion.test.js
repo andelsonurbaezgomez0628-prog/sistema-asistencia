@@ -34,7 +34,7 @@ prueba('el detalle de reportes limita al estudiante por permisos y consulta su h
   const inicio = seguimiento.indexOf("enrutador.get('/reportes/estudiantes/:id'");
   const fin = seguimiento.indexOf("enrutador.get('/reportes'", inicio);
   const ruta = seguimiento.slice(inicio, fin);
-  afirmar.match(ruta, /router\.get\('\/reportes\/estudiantes\/:id', requerirLogin/);
+  afirmar.match(ruta, /enrutador\.get\('\/reportes\/estudiantes\/:id', requerirLogin/);
   afirmar.match(ruta, /validarId\(solicitud\.params\.id\)/);
   afirmar.match(ruta, /sd\.docente_id = \$2/);
   afirmar.match(ruta, /const valoresEstudiante = \[idEstudiante\]/);
@@ -47,7 +47,7 @@ prueba('el perfil solo modifica datos de la cuenta autenticada y protege el camb
   const inicio = fuente.indexOf("enrutador.post('/cuenta/perfil'");
   const fin = fuente.indexOf("enrutador.post('/cuenta/clave'", inicio);
   const ruta = fuente.slice(inicio, fin);
-  afirmar.match(ruta, /router\.post\('\/cuenta\/perfil', requerirLogin, protegerCsrf/);
+  afirmar.match(ruta, /enrutador\.post\('\/cuenta\/perfil', requerirLogin, protegerCsrf/);
   afirmar.match(ruta, /bcrypt\.compare\(claveActual, filas\[0\]\.password_hash\)/);
   afirmar.match(ruta, /WHERE id = \$4 AND activo IS TRUE/);
   afirmar.match(ruta, /\[nombre, cedula, usuario, solicitud\.user\.id\]/);
