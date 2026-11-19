@@ -35,7 +35,7 @@ test('el detalle de reportes limita al estudiante por permisos y consulta su his
   const fin = seguimiento.indexOf("router.get('/reportes'", inicio);
   const ruta = seguimiento.slice(inicio, fin);
   assert.match(ruta, /router\.get\('\/reportes\/estudiantes\/:id', requerirLogin/);
-  assert.match(ruta, /validarId\(req\.params\.id\)/);
+  assert.match(ruta, /validarId\(solicitud\.params\.id\)/);
   assert.match(ruta, /sd\.docente_id = \$2/);
   assert.match(ruta, /const valoresEstudiante = \[idEstudiante\]/);
   assert.match(ruta, /WHERE estudiante_id = \$1 AND fecha BETWEEN \$2 AND \$3/);
@@ -50,7 +50,7 @@ test('el perfil solo modifica datos de la cuenta autenticada y protege el cambio
   assert.match(ruta, /router\.post\('\/cuenta\/perfil', requerirLogin, protegerCsrf/);
   assert.match(ruta, /bcrypt\.compare\(claveActual, filas\[0\]\.password_hash\)/);
   assert.match(ruta, /WHERE id = \$4 AND activo IS TRUE/);
-  assert.match(ruta, /\[nombre, cedula, usuario, req\.user\.id\]/);
-  assert.doesNotMatch(ruta, /req\.body\.(?:id|rol|activo)/);
+  assert.match(ruta, /\[nombre, cedula, usuario, solicitud\.user\.id\]/);
+  assert.doesNotMatch(ruta, /solicitud\.body\.(?:id|rol|activo)/);
   assert.doesNotMatch(ruta, /UPDATE usuarios SET[^`]*\b(?:rol|activo)\s*=/);
 });

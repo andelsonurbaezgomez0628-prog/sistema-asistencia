@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db, consulta } from '../db.js';
+import { baseDatos, consulta } from '../db.js';
 import { protegerCsrf, requerirAdmin, validarId } from '../security.js';
 
 const router = Router();
@@ -87,7 +87,7 @@ async function docentesValidos(ids, seccionId = null) {
 
 // Guarda la seccion y sus docentes juntos; si algo falla, no deja cambios parciales.
 async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
-  const conexion = await db.connect();
+  const conexion = await baseDatos.connect();
   try {
     await conexion.query('BEGIN');
     let seccionId = id;
@@ -127,7 +127,7 @@ router.use(requerirAdmin);
 
 // Inicio de Gestion: carga las listas que usan las pestañas de administracion.
 /* Lectura: cargar listas para que la coordinacion pueda revisar y editar registros. */
-router.get('/', async (req, res, next) => {
+router.get('/', async (solicitud, respuesta, siguiente) => {
   try {
     const [cursos, secciones, estudiantes, docentes, administradores] = await Promise.all([
       consulta(
@@ -162,16 +162,16 @@ router.get('/', async (req, res, next) => {
          WHERE rol = 'admin' ORDER BY nombre`,
       ),
     ]);
-    return res.render('gestion', { cursos, secciones, estudiantes, docentes, administradores });
+    return respuesta.render('gestion', { cursos, secciones, estudiantes, docentes, administradores });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
 /* Edicion: el tipo selecciona una consulta fija y datos auxiliares permitidos. */
-router.get('/editar/:tipo/:id', async (req, res, next) => {
-  const { tipo } = req.params;
-  const id = validarId(req.params.id);
+router.get('/editar/:tipo/:id', async (solicitud, respuesta, siguiente) => {
+  const { tipo } = solicitud.params;
+  const id = validarId(solicitud.params.id);
   // Cada tipo tiene una consulta fija; el nombre del tipo nunca se inserta en SQL.
   const consultaPorTipo = {
     seccion: 'SELECT id, nombre, curso_id, anio_escolar FROM secciones WHERE id = $1',
@@ -180,12 +180,12 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
     administrador: "SELECT id, nombre, cedula, usuario, activo, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND rol = 'admin'",
   };
   if (!id || !consultaPorTipo[tipo]) {
-    return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
+    return respuesta.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
   }
 
   try {
     const filas = await consulta(consultaPorTipo[tipo], [id]);
-    if (filas.length === 0) return res.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
+    if (filas.length === 0) return respuesta.status(404).render('error', { mensaje: 'El registro solicitado no existe.' });
 
     // Cargar listas auxiliares solo para los formularios que las necesitan.
     const [cursos, secciones, docentes, docentesAsignados] = await Promise.all([
@@ -204,7 +204,7 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
         ? consulta('SELECT docente_id FROM seccion_docentes WHERE seccion_id = $1', [id])
         : [],
     ]);
-    return res.render('editar', {
+    return respuesta.render('editar', {
       tipo,
       registro: filas[0],
       cursos,
@@ -213,45 +213,45 @@ router.get('/editar/:tipo/:id', async (req, res, next) => {
       docentesAsignados: docentesAsignados.map((fila) => Number(fila.docente_id)),
     });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
 /* Guardado de cambios: validar campos y relaciones antes de actualizar la tabla correspondiente. */
-router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
-  const { tipo } = req.params;
-  const id = validarId(req.params.id);
-  if (!id) return res.status(400).render('error', { mensaje: 'El identificador no es valido.' });
+router.post('/editar/:tipo/:id', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const { tipo } = solicitud.params;
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.status(400).render('error', { mensaje: 'El identificador no es valido.' });
 
   try {
     // El tipo define que campos validar y que tabla se actualiza.
     if (tipo === 'seccion') {
       // La seccion necesita un curso existente y docentes activos o ya asignados.
-      const cursoId = validarId(String(req.body.curso_id || ''));
-      const docenteIds = normalizarIdsDocentes(req.body.docente_ids);
-      const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-      const anio = typeof req.body.anio_escolar === 'string' ? req.body.anio_escolar.trim() : '';
+      const cursoId = validarId(String(solicitud.body.curso_id || ''));
+      const docenteIds = normalizarIdsDocentes(solicitud.body.docente_ids);
+      const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+      const anio = typeof solicitud.body.anio_escolar === 'string' ? solicitud.body.anio_escolar.trim() : '';
       if (!cursoId || !docenteIds || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
-        req.session.flash = 'Revisa los datos de la seccion.';
-        return res.redirect(`/gestion/editar/seccion/${id}`);
+        solicitud.session.flash = 'Revisa los datos de la seccion.';
+        return respuesta.redirect(`/gestion/editar/seccion/${id}`);
       }
       const curso = await consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]);
       if (!curso.length || !(await docentesValidos(docenteIds, id))) {
-        return res.status(400).render('error', { mensaje: 'Curso o docentes no validos.' });
+        return respuesta.status(400).render('error', { mensaje: 'Curso o docentes no validos.' });
       }
       await guardarSeccion({ id, nombre, cursoId, anio, docenteIds });
     } else if (tipo === 'estudiante') {
       // El numero de lista debe ser unico dentro de la seccion.
-      const numeroLista = typeof req.body.numero_lista === 'string' ? req.body.numero_lista.trim() : '';
-      const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-      const apellido = typeof req.body.apellido === 'string' ? req.body.apellido.trim() : '';
-      const seccionId = validarId(String(req.body.seccion_id || ''));
-      const nacimiento = req.body.fecha_nacimiento || null;
-      const activo = req.body.activo === '1';
+      const numeroLista = typeof solicitud.body.numero_lista === 'string' ? solicitud.body.numero_lista.trim() : '';
+      const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+      const apellido = typeof solicitud.body.apellido === 'string' ? solicitud.body.apellido.trim() : '';
+      const seccionId = validarId(String(solicitud.body.seccion_id || ''));
+      const nacimiento = solicitud.body.fecha_nacimiento || null;
+      const activo = solicitud.body.activo === '1';
       if (!numeroListaValido(numeroLista) || !textoValido(nombre, 80) || !textoValido(apellido, 80) || !seccionId
           || (nacimiento && !fechaValida(nacimiento))) {
-        req.session.flash = 'Revisa los datos del estudiante; el numero de lista debe estar entre 1 y 40.';
-        return res.redirect(`/gestion/editar/estudiante/${id}`);
+        solicitud.session.flash = 'Revisa los datos del estudiante; el numero de lista debe estar entre 1 y 40.';
+        return respuesta.redirect(`/gestion/editar/estudiante/${id}`);
       }
       await consulta(
         `UPDATE estudiantes SET numero_lista = $1, nombre = $2, apellido = $3,
@@ -261,36 +261,36 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
     } else if (tipo === 'docente' || tipo === 'administrador') {
       // La ruta determina el rol; solo se reemplaza el hash si se envio una clave nueva.
       const rol = ROLES_CUENTA[tipo];
-      const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-      const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
-      const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
-      const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
-      const activo = req.body.activo === '1';
+      const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+      const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
+      const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
+      const clave = typeof solicitud.body.clave === 'string' ? solicitud.body.clave : '';
+      const activo = solicitud.body.activo === '1';
       if (!textoValido(nombre, 120) || !cedulaValida(cedula) || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario)
           || (clave && clave.length < 4)) {
-        req.session.flash = `Revisa los datos del ${tipo}; la clave nueva debe tener al menos 4 caracteres.`;
-        return res.redirect(`/gestion/editar/${tipo}/${id}`);
+        solicitud.session.flash = `Revisa los datos del ${tipo}; la clave nueva debe tener al menos 4 caracteres.`;
+        return respuesta.redirect(`/gestion/editar/${tipo}/${id}`);
       }
       if (!activo) {
         if (rol === 'admin') {
-          if (id === req.user.id) {
-            req.session.flash = 'No puedes desactivar tu propia cuenta de administrador.';
-            return res.redirect(`/gestion/editar/${tipo}/${id}`);
+          if (id === solicitud.user.id) {
+            solicitud.session.flash = 'No puedes desactivar tu propia cuenta de administrador.';
+            return respuesta.redirect(`/gestion/editar/${tipo}/${id}`);
           }
           if (await contarAdminsActivos() <= 1) {
-            req.session.flash = 'Debe quedar al menos un administrador activo.';
-            return res.redirect(`/gestion/editar/${tipo}/${id}`);
+            solicitud.session.flash = 'Debe quedar al menos un administrador activo.';
+            return respuesta.redirect(`/gestion/editar/${tipo}/${id}`);
           }
         } else {
           const asignadas = await consulta('SELECT COUNT(*) AS total FROM seccion_docentes WHERE docente_id = $1', [id]);
           if (Number(asignadas[0].total) > 0) {
-            req.session.flash = 'Reasigna primero las secciones antes de desactivar el docente.';
-            return res.redirect(`/gestion/editar/${tipo}/${id}`);
+            solicitud.session.flash = 'Reasigna primero las secciones antes de desactivar el docente.';
+            return respuesta.redirect(`/gestion/editar/${tipo}/${id}`);
           }
         }
       }
       const [cuenta] = await consulta('SELECT id FROM usuarios WHERE id = $1 AND rol = $2', [id, rol]);
-      if (!cuenta) return res.status(404).render('error', { mensaje: 'La cuenta no existe.' });
+      if (!cuenta) return respuesta.status(404).render('error', { mensaje: 'La cuenta no existe.' });
       if (clave) {
         const passwordHash = await bcrypt.hash(clave, 12);
         await consulta(
@@ -306,137 +306,137 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (req, res, next) => {
         );
       }
     } else {
-      return res.status(404).render('error', { mensaje: 'El tipo de registro no existe.' });
+      return respuesta.status(404).render('error', { mensaje: 'El tipo de registro no existe.' });
     }
 
-    req.session.flash = 'Cambios guardados.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Cambios guardados.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
-      req.session.flash = tipo === 'estudiante'
+      solicitud.session.flash = tipo === 'estudiante'
         ? 'Ese numero de lista ya esta ocupado en la seccion.'
         : 'La cedula, usuario o nombre ya esta registrado.';
-      return res.redirect(`/gestion/editar/${tipo}/${id}`);
+      return respuesta.redirect(`/gestion/editar/${tipo}/${id}`);
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
 /* Cursos y secciones: no borrar elementos que aun tengan estudiantes o historial asociado. */
-router.post('/cursos', protegerCsrf, async (req, res, next) => {
-  const id = req.body.id ? validarId(req.body.id) : null;
-  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-  const descripcion = typeof req.body.descripcion === 'string' ? req.body.descripcion.trim() : '';
-  if ((req.body.id && !id) || !textoValido(nombre, 100) || descripcion.length > 255) {
-    req.session.flash = 'Revisa el nombre y la descripcion del curso.';
-    return res.redirect('/gestion');
+router.post('/cursos', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
+  const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+  const descripcion = typeof solicitud.body.descripcion === 'string' ? solicitud.body.descripcion.trim() : '';
+  if ((solicitud.body.id && !id) || !textoValido(nombre, 100) || descripcion.length > 255) {
+    solicitud.session.flash = 'Revisa el nombre y la descripcion del curso.';
+    return respuesta.redirect('/gestion');
   }
 
   try {
     if (id) {
-      if (req.body.descripcion === undefined) {
+      if (solicitud.body.descripcion === undefined) {
         await consulta('UPDATE cursos SET nombre = $1 WHERE id = $2', [nombre, id]);
       } else {
         await consulta('UPDATE cursos SET nombre = $1, descripcion = $2 WHERE id = $3', [nombre, descripcion || null, id]);
       }
-      req.session.flash = 'Curso actualizado.';
+      solicitud.session.flash = 'Curso actualizado.';
     } else {
       await consulta('INSERT INTO cursos (nombre, descripcion) VALUES ($1, $2)', [nombre, descripcion || null]);
-      req.session.flash = 'Curso creado.';
+      solicitud.session.flash = 'Curso creado.';
     }
-    return res.redirect('/gestion');
+    return respuesta.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
-      req.session.flash = 'Ya existe un curso con ese nombre.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'Ya existe un curso con ese nombre.';
+      return respuesta.redirect('/gestion');
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/cursos/:id/eliminar', protegerCsrf, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id) return res.status(400).render('error', { mensaje: 'El curso indicado no es valido.' });
+router.post('/cursos/:id/eliminar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.status(400).render('error', { mensaje: 'El curso indicado no es valido.' });
   try {
     const relaciones = await consulta('SELECT COUNT(*) AS total FROM secciones WHERE curso_id = $1', [id]);
     if (Number(relaciones[0].total) > 0) {
-      req.session.flash = 'No se puede eliminar un curso que tenga secciones.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'No se puede eliminar un curso que tenga secciones.';
+      return respuesta.redirect('/gestion');
     }
     await consulta('DELETE FROM cursos WHERE id = $1', [id]);
-    req.session.flash = 'Curso eliminado.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Curso eliminado.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/secciones', protegerCsrf, async (req, res, next) => {
-  const id = req.body.id ? validarId(req.body.id) : null;
-  const cursoId = validarId(String(req.body.curso_id || ''));
-  const docenteIds = normalizarIdsDocentes(req.body.docente_ids);
-  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-  const anio = typeof req.body.anio_escolar === 'string' ? req.body.anio_escolar.trim() : '';
-  if ((req.body.id && !id) || !cursoId || !docenteIds || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
-    req.session.flash = 'Revisa los datos de la seccion.';
-    return res.redirect('/gestion');
+router.post('/secciones', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
+  const cursoId = validarId(String(solicitud.body.curso_id || ''));
+  const docenteIds = normalizarIdsDocentes(solicitud.body.docente_ids);
+  const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+  const anio = typeof solicitud.body.anio_escolar === 'string' ? solicitud.body.anio_escolar.trim() : '';
+  if ((solicitud.body.id && !id) || !cursoId || !docenteIds || !textoValido(nombre, 50) || !anioEscolarValido(anio)) {
+    solicitud.session.flash = 'Revisa los datos de la seccion.';
+    return respuesta.redirect('/gestion');
   }
 
   try {
     const cursosEncontrados = await consulta('SELECT id FROM cursos WHERE id = $1', [cursoId]);
     if (cursosEncontrados.length === 0 || !(await docentesValidos(docenteIds, id))) {
-      req.session.flash = 'El curso o docente seleccionado no esta activo.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'El curso o docente seleccionado no esta activo.';
+      return respuesta.redirect('/gestion');
     }
     await guardarSeccion({ id, nombre, cursoId, anio, docenteIds });
-    req.session.flash = id ? 'Seccion actualizada.' : 'Seccion creada.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = id ? 'Seccion actualizada.' : 'Seccion creada.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
-      req.session.flash = 'Ese nombre de seccion ya existe en el curso.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'Ese nombre de seccion ya existe en el curso.';
+      return respuesta.redirect('/gestion');
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/secciones/:id/eliminar', protegerCsrf, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id) return res.status(400).render('error', { mensaje: 'La seccion indicada no es valida.' });
+router.post('/secciones/:id/eliminar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.status(400).render('error', { mensaje: 'La seccion indicada no es valida.' });
   try {
     const relaciones = await consulta('SELECT COUNT(*) AS total FROM estudiantes WHERE seccion_id = $1', [id]);
     if (Number(relaciones[0].total) > 0) {
-      req.session.flash = 'No se puede eliminar una seccion que tenga estudiantes.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'No se puede eliminar una seccion que tenga estudiantes.';
+      return respuesta.redirect('/gestion');
     }
     await consulta('DELETE FROM secciones WHERE id = $1', [id]);
-    req.session.flash = 'Seccion eliminada.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Seccion eliminada.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
 /* Estudiantes: desactivar conserva asistencia y alertas que ya forman parte del historial. */
-router.post('/estudiantes', protegerCsrf, async (req, res, next) => {
-  const id = req.body.id ? validarId(req.body.id) : null;
-  const numeroLista = typeof req.body.numero_lista === 'string' ? req.body.numero_lista.trim() : '';
-  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-  const apellido = typeof req.body.apellido === 'string' ? req.body.apellido.trim() : '';
-  const seccionId = validarId(String(req.body.seccion_id || ''));
-  const nacimiento = req.body.fecha_nacimiento || null;
-  if ((req.body.id && !id) || !numeroListaValido(numeroLista) || !textoValido(nombre, 80)
+router.post('/estudiantes', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
+  const numeroLista = typeof solicitud.body.numero_lista === 'string' ? solicitud.body.numero_lista.trim() : '';
+  const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+  const apellido = typeof solicitud.body.apellido === 'string' ? solicitud.body.apellido.trim() : '';
+  const seccionId = validarId(String(solicitud.body.seccion_id || ''));
+  const nacimiento = solicitud.body.fecha_nacimiento || null;
+  if ((solicitud.body.id && !id) || !numeroListaValido(numeroLista) || !textoValido(nombre, 80)
       || !textoValido(apellido, 80) || !seccionId
       || (nacimiento && !fechaValida(nacimiento))) {
-    req.session.flash = 'Revisa los datos del estudiante; el numero de lista debe estar entre 1 y 40.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Revisa los datos del estudiante; el numero de lista debe estar entre 1 y 40.';
+    return respuesta.redirect('/gestion');
   }
 
   try {
     const secciones = await consulta('SELECT id FROM secciones WHERE id = $1', [seccionId]);
     if (secciones.length === 0) {
-      req.session.flash = 'La seccion seleccionada no existe.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'La seccion seleccionada no existe.';
+      return respuesta.redirect('/gestion');
     }
     if (id) {
       await consulta(
@@ -444,49 +444,49 @@ router.post('/estudiantes', protegerCsrf, async (req, res, next) => {
          WHERE id = $6`,
         [numeroLista, nombre, apellido, nacimiento, seccionId, id],
       );
-      req.session.flash = 'Estudiante actualizado.';
+      solicitud.session.flash = 'Estudiante actualizado.';
     } else {
       await consulta(
         `INSERT INTO estudiantes (numero_lista, nombre, apellido, fecha_nacimiento, seccion_id)
          VALUES ($1, $2, $3, $4, $5)`,
         [numeroLista, nombre, apellido, nacimiento, seccionId],
       );
-      req.session.flash = 'Estudiante creado.';
+      solicitud.session.flash = 'Estudiante creado.';
     }
-    return res.redirect('/gestion');
+    return respuesta.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
-      req.session.flash = 'Ese numero de lista ya esta ocupado en la seccion.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'Ese numero de lista ya esta ocupado en la seccion.';
+      return respuesta.redirect('/gestion');
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/estudiantes/:id/desactivar', protegerCsrf, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id) return res.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
+router.post('/estudiantes/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
   try {
     await consulta('UPDATE estudiantes SET activo = FALSE WHERE id = $1', [id]);
-    req.session.flash = 'Estudiante desactivado; su historial se conserva.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Estudiante desactivado; su historial se conserva.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
 /* Personal: guardar contrasenas con hash; el rol lo determina la ruta, no el formulario. */
-router.post('/docentes', protegerCsrf, async (req, res, next) => {
-  const id = req.body.id ? validarId(req.body.id) : null;
-  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-  const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
-  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
-  const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
-  if ((req.body.id && !id) || !textoValido(nombre, 120) || !cedulaValida(cedula)
+router.post('/docentes', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
+  const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+  const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
+  const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
+  const clave = typeof solicitud.body.clave === 'string' ? solicitud.body.clave : '';
+  if ((solicitud.body.id && !id) || !textoValido(nombre, 120) || !cedulaValida(cedula)
       || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario) || (!id && clave.length < 4)
       || (clave && clave.length < 4)) {
-    req.session.flash = 'Revisa los datos; la contrasena debe tener al menos 4 caracteres.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Revisa los datos; la contrasena debe tener al menos 4 caracteres.';
+    return respuesta.redirect('/gestion');
   }
 
   try {
@@ -505,7 +505,7 @@ router.post('/docentes', protegerCsrf, async (req, res, next) => {
           [nombre, cedula, usuario, id],
         );
       }
-      req.session.flash = 'Docente actualizado.';
+      solicitud.session.flash = 'Docente actualizado.';
     } else {
       const passwordHash = await bcrypt.hash(clave, 12);
       await consulta(
@@ -513,45 +513,45 @@ router.post('/docentes', protegerCsrf, async (req, res, next) => {
          VALUES ($1, $2, $3, $4, 'docente')`,
         [nombre, cedula, usuario, passwordHash],
       );
-      req.session.flash = 'Docente creado.';
+      solicitud.session.flash = 'Docente creado.';
     }
-    return res.redirect('/gestion');
+    return respuesta.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
-      req.session.flash = 'La cedula o el usuario ya estan registrados.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'La cedula o el usuario ya estan registrados.';
+      return respuesta.redirect('/gestion');
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/docentes/:id/desactivar', protegerCsrf, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id) return res.status(400).render('error', { mensaje: 'El docente indicado no es valido.' });
+router.post('/docentes/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.status(400).render('error', { mensaje: 'El docente indicado no es valido.' });
   try {
     const secciones = await consulta('SELECT COUNT(*) AS total FROM seccion_docentes WHERE docente_id = $1', [id]);
     if (Number(secciones[0].total) > 0) {
-      req.session.flash = 'Reasigna primero las secciones de este docente.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'Reasigna primero las secciones de este docente.';
+      return respuesta.redirect('/gestion');
     }
     await consulta("UPDATE usuarios SET activo = FALSE WHERE id = $1 AND rol = 'docente'", [id]);
-    req.session.flash = 'Docente desactivado; sus datos historicos se conservan.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Docente desactivado; sus datos historicos se conservan.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/administradores', protegerCsrf, async (req, res, next) => {
-  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-  const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
-  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
-  const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
+router.post('/administradores', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+  const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
+  const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
+  const clave = typeof solicitud.body.clave === 'string' ? solicitud.body.clave : '';
   // El rol nunca se toma del formulario: esta ruta solo crea administradores.
   if (!textoValido(nombre, 120) || !cedulaValida(cedula)
       || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario) || clave.length < 4) {
-    req.session.flash = 'Revisa los datos; la contrasena debe tener al menos 4 caracteres.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Revisa los datos; la contrasena debe tener al menos 4 caracteres.';
+    return respuesta.redirect('/gestion');
   }
 
   try {
@@ -561,35 +561,35 @@ router.post('/administradores', protegerCsrf, async (req, res, next) => {
        VALUES ($1, $2, $3, $4, 'admin')`,
       [nombre, cedula, usuario, passwordHash],
     );
-    req.session.flash = 'Administrador creado.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Administrador creado.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
     if (error.code === '23505') {
-      req.session.flash = 'La cedula o el usuario ya estan registrados.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'La cedula o el usuario ya estan registrados.';
+      return respuesta.redirect('/gestion');
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/administradores/:id/desactivar', protegerCsrf, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id) return res.status(400).render('error', { mensaje: 'El administrador indicado no es valido.' });
-  if (id === req.user.id) {
-    req.session.flash = 'No puedes desactivar tu propia cuenta de administrador.';
-    return res.redirect('/gestion');
+router.post('/administradores/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.status(400).render('error', { mensaje: 'El administrador indicado no es valido.' });
+  if (id === solicitud.user.id) {
+    solicitud.session.flash = 'No puedes desactivar tu propia cuenta de administrador.';
+    return respuesta.redirect('/gestion');
   }
   try {
     const activos = await contarAdminsActivos();
     if (activos <= 1) {
-      req.session.flash = 'Debe quedar al menos un administrador activo.';
-      return res.redirect('/gestion');
+      solicitud.session.flash = 'Debe quedar al menos un administrador activo.';
+      return respuesta.redirect('/gestion');
     }
     await consulta("UPDATE usuarios SET activo = FALSE WHERE id = $1 AND rol = 'admin'", [id]);
-    req.session.flash = 'Administrador desactivado; sus datos historicos se conservan.';
-    return res.redirect('/gestion');
+    solicitud.session.flash = 'Administrador desactivado; sus datos historicos se conservan.';
+    return respuesta.redirect('/gestion');
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 

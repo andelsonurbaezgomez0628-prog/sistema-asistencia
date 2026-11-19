@@ -6,7 +6,7 @@ import 'dotenv/config';
  * variables de entorno de manera distinta en cada modulo.
  */
 // La huella es publica: Digital Asset Links la usa para asociar la web con los APK firmados.
-const androidAssetLinksByHost = Object.freeze({
+const enlacesAndroidPorServidor = Object.freeze({
   'sistema-asistencia-2os4.onrender.com': Object.freeze({
     packageName: 'com.sistema.asistencia',
     sha256CertFingerprint: '68:97:04:AA:70:B4:85:87:A8:8D:18:E3:72:27:7C:44:0B:28:C3:CA:6B:67:F0:A3:56:B6:1E:50:C6:AA:79:3B',
@@ -49,30 +49,30 @@ function obtenerPuerto(variables) {
 
 export function crearConfiguracion(variables = process.env) {
   // Este es el unico lugar que lee la configuracion para que las rutas usen valores ya validados.
-  const databaseUrl = crearUrlPostgres(variables);
-  const sessionSecret = obtenerVariableObligatoria('SESSION_SECRET', variables);
-  if (sessionSecret.length < 32) {
+  const urlBaseDatos = crearUrlPostgres(variables);
+  const secretoSesion = obtenerVariableObligatoria('SESSION_SECRET', variables);
+  if (secretoSesion.length < 32) {
     throw new Error('SESSION_SECRET debe tener al menos 32 caracteres.');
   }
 
-  const port = obtenerPuerto(variables);
-  const nodeEnv = variables.NODE_ENV || 'development';
+  const puerto = obtenerPuerto(variables);
+  const entornoNode = variables.NODE_ENV || 'development';
   // Render define RENDER=true aunque NODE_ENV no se configure. Detectarlo evita
   // que el servicio quede sin cookies Secure o sin confiar en el proxy.
-  const usarAjustesDeHosting = nodeEnv === 'production' || Boolean(variables.RENDER);
+  const usarAjustesDeAlojamiento = entornoNode === 'production' || Boolean(variables.RENDER);
   return Object.freeze({
-    nodeEnv,
+    entornoNode,
     // Siempre 0.0.0.0: el proxy del hosting necesita alcanzar la aplicacion.
     // No se acepta HOST porque un valor 127.0.0.1 deja el servicio inaccesible.
-    host: '0.0.0.0',
-    port,
-    databaseUrl: databaseUrl.toString(),
-    sessionSecret,
-    cookieSecure: usarAjustesDeHosting,
-    trustProxy: usarAjustesDeHosting,
-    androidAssetLinksByHost,
+    anfitrion: '0.0.0.0',
+    puerto,
+    urlBaseDatos: urlBaseDatos.toString(),
+    secretoSesion,
+    cookieSegura: usarAjustesDeAlojamiento,
+    confiarEnProxy: usarAjustesDeAlojamiento,
+    enlacesAndroidPorServidor,
   });
 }
 
 /* La aplicacion carga esta configuracion una vez al iniciar. */
-export const config = crearConfiguracion();
+export const configuracion = crearConfiguracion();

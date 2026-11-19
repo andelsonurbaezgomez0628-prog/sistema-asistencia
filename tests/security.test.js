@@ -90,20 +90,20 @@ test('consulta la cuenta activa en cada solicitud autenticada', async () => {
     assert.deepEqual(valores, [8]);
     return [{ id: 8, nombre: 'Docente', rol: 'docente' }];
   });
-  const req = { session: { userId: 8 } };
+  const solicitud = { session: { userId: 8 } };
   let siguiente = false;
-  await cargar(req, crearRespuesta(), (error) => { assert.ifError(error); siguiente = true; });
+  await cargar(solicitud, crearRespuesta(), (error) => { assert.ifError(error); siguiente = true; });
   assert.equal(consultas, 1);
-  assert.equal(req.user.id, 8);
+  assert.equal(solicitud.user.id, 8);
   assert.equal(siguiente, true);
 });
 
 test('invalida la sesion si la cuenta fue desactivada', async () => {
   const cargar = crearCargarUsuarioActual(async () => []);
   let sesionDestruida = false;
-  const req = { session: { userId: 8, destroy(callback) { sesionDestruida = true; callback(); } } };
+  const solicitud = { session: { userId: 8, destroy(funcionFinalizacion) { sesionDestruida = true; funcionFinalizacion(); } } };
   const respuesta = crearRespuesta();
-  await cargar(req, respuesta, () => assert.fail('No debe continuar'));
+  await cargar(solicitud, respuesta, () => assert.fail('No debe continuar'));
   assert.equal(sesionDestruida, true);
   assert.equal(respuesta.cookieEliminada, 'asistencia.sid');
   assert.equal(respuesta.ruta, '/login');

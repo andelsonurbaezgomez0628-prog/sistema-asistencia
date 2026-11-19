@@ -7,9 +7,9 @@ import { esErrorTransitorio, esperarReintento } from './errores.js';
  * sesiones viejas para que la tabla no crezca indefinidamente.
  */
 // La cookie normalmente trae su fecha de expiracion; usamos ocho horas como respaldo.
-function calcularFechaExpiracionEnSegundos(sessionData) {
-  if (sessionData.cookie?.expires) {
-    return Math.floor(new Date(sessionData.cookie.expires).getTime() / 1000);
+function calcularFechaExpiracionEnSegundos(datosSesion) {
+  if (datosSesion.cookie?.expires) {
+    return Math.floor(new Date(datosSesion.cookie.expires).getTime() / 1000);
   }
 
   // Una sesion sin fecha explicita conserva el mismo limite de ocho horas que la cookie.
@@ -17,9 +17,9 @@ function calcularFechaExpiracionEnSegundos(sessionData) {
 }
 
 // Una sesion con JSON danado se trata como inexistente en lugar de romper la pagina.
-function decodificarSesion(data) {
+function decodificarSesion(datos) {
   try {
-    return JSON.parse(data);
+    return JSON.parse(datos);
   } catch {
     return null;
   }
@@ -37,65 +37,65 @@ async function ejecutarConReintento(operacion) {
 }
 
 export class PostgresSessionStore extends session.Store {
-  constructor(db, cleanupIntervalMs = 15 * 60 * 1000) {
+  constructor(baseDatos, intervaloLimpiezaMs = 15 * 60 * 1000) {
     super();
-    this.db = db;
-    this.cleanupTimer = setInterval(() => {
+    this.baseDatos = baseDatos;
+    this.temporizadorLimpieza = setInterval(() => {
       this.clearExpired().catch(() => {});
-    }, cleanupIntervalMs);
-    this.cleanupTimer.unref();
+    }, intervaloLimpiezaMs);
+    this.temporizadorLimpieza.unref();
   }
 
-  get(sessionId, callback) {
-    ejecutarConReintento(() => this.db.query(
+  get(idSesion, funcionFinalizacion) {
+    ejecutarConReintento(() => this.baseDatos.query(
       'SELECT data FROM sesiones WHERE session_id = $1 AND expires > $2',
-      [sessionId, Math.floor(Date.now() / 1000)],
+      [idSesion, Math.floor(Date.now() / 1000)],
     )).then(({ rows: sesionesEncontradas }) => {
       if (sesionesEncontradas.length === 0) {
-        callback(null, null);
+        funcionFinalizacion(null, null);
         return;
       }
 
       // express-session espera el objeto ya decodificado, no el texto JSON de PostgreSQL.
-      callback(null, decodificarSesion(sesionesEncontradas[0].data));
-    }).catch(callback);
+      funcionFinalizacion(null, decodificarSesion(sesionesEncontradas[0].data));
+    }).catch(funcionFinalizacion);
   }
 
   /* Guardar reemplaza los datos; touch solo extiende su vencimiento. */
-  set(sessionId, sessionData, callback = () => {}) {
-    const fechaExpiracion = calcularFechaExpiracionEnSegundos(sessionData);
-    ejecutarConReintento(() => this.db.query(
+  set(idSesion, datosSesion, funcionFinalizacion = () => {}) {
+    const fechaExpiracion = calcularFechaExpiracionEnSegundos(datosSesion);
+    ejecutarConReintento(() => this.baseDatos.query(
       `INSERT INTO sesiones (session_id, expires, data) VALUES ($1, $2, $3)
        ON CONFLICT (session_id) DO UPDATE SET expires = EXCLUDED.expires, data = EXCLUDED.data`,
-      [sessionId, fechaExpiracion, JSON.stringify(sessionData)],
-    )).then(() => callback(null)).catch(callback);
+      [idSesion, fechaExpiracion, JSON.stringify(datosSesion)],
+    )).then(() => funcionFinalizacion(null)).catch(funcionFinalizacion);
   }
 
-  touch(sessionId, sessionData, callback = () => {}) {
-    const fechaExpiracion = calcularFechaExpiracionEnSegundos(sessionData);
+  touch(idSesion, datosSesion, funcionFinalizacion = () => {}) {
+    const fechaExpiracion = calcularFechaExpiracionEnSegundos(datosSesion);
 
-    ejecutarConReintento(() => this.db.query(
+    ejecutarConReintento(() => this.baseDatos.query(
       'UPDATE sesiones SET expires = $1 WHERE session_id = $2',
-      [fechaExpiracion, sessionId],
-    )).then(() => callback(null)).catch(callback);
+      [fechaExpiracion, idSesion],
+    )).then(() => funcionFinalizacion(null)).catch(funcionFinalizacion);
   }
 
-  destroy(sessionId, callback = () => {}) {
-    ejecutarConReintento(() => this.db.query(
+  destroy(idSesion, funcionFinalizacion = () => {}) {
+    ejecutarConReintento(() => this.baseDatos.query(
       'DELETE FROM sesiones WHERE session_id = $1',
-      [sessionId],
-    )).then(() => callback(null)).catch(callback);
+      [idSesion],
+    )).then(() => funcionFinalizacion(null)).catch(funcionFinalizacion);
   }
 
   async clearExpired() {
     // expires se guarda como segundos Unix; las sesiones vencidas ya no se pueden reutilizar.
-    await ejecutarConReintento(() => this.db.query(
+    await ejecutarConReintento(() => this.baseDatos.query(
       'DELETE FROM sesiones WHERE expires <= $1',
       [Math.floor(Date.now() / 1000)],
     ));
   }
 
   close() {
-    clearInterval(this.cleanupTimer);
+    clearInterval(this.temporizadorLimpieza);
   }
 }

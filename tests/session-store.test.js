@@ -2,76 +2,76 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PostgresSessionStore } from '../src/session-store.js';
 
-function esperarCallback(ejecutar) {
-  return new Promise((resolve, reject) => {
-    ejecutar((error, resultado) => error ? reject(error) : resolve(resultado));
+function esperarFinalizacion(ejecutar) {
+  return new Promise((resolver, rechazar) => {
+    ejecutar((error, resultado) => error ? rechazar(error) : resolver(resultado));
   });
 }
 
 test('lee y decodifica una sesion vigente', async () => {
-  const db = {
+  const baseDatosFalsa = {
     async query(sql, valores) {
       assert.match(sql, /expires > \$2/);
       assert.equal(valores[0], 'sesion-1');
       return { rows: [{ data: '{"userId":7}' }] };
     },
   };
-  const store = new PostgresSessionStore(db, 60000);
+  const almacenSesion = new PostgresSessionStore(baseDatosFalsa, 60000);
   try {
-    const sesion = await esperarCallback((callback) => store.get('sesion-1', callback));
+    const sesion = await esperarFinalizacion((funcionFinalizacion) => almacenSesion.get('sesion-1', funcionFinalizacion));
     assert.deepEqual(sesion, { userId: 7 });
   } finally {
-    store.close();
+    almacenSesion.close();
   }
 });
 
 test('guarda una sesion serializada con expiracion', async () => {
-  const sessionData = { cookie: { expires: new Date('2026-10-26T12:00:00.000Z') }, userId: 3 };
-  const db = {
+  const datosSesion = { cookie: { expires: new Date('2026-10-26T12:00:00.000Z') }, userId: 3 };
+  const baseDatosFalsa = {
     async query(sql, valores) {
       assert.match(sql, /VALUES \(\$1, \$2, \$3\)/);
       assert.match(sql, /ON CONFLICT \(session_id\)/);
       assert.equal(valores[0], 'sesion-2');
-      assert.equal(valores[1], Date.parse(sessionData.cookie.expires) / 1000);
-      assert.deepEqual(JSON.parse(valores[2]), JSON.parse(JSON.stringify(sessionData)));
+      assert.equal(valores[1], Date.parse(datosSesion.cookie.expires) / 1000);
+      assert.deepEqual(JSON.parse(valores[2]), JSON.parse(JSON.stringify(datosSesion)));
       return { rowCount: 1 };
     },
   };
-  const store = new PostgresSessionStore(db, 60000);
+  const almacenSesion = new PostgresSessionStore(baseDatosFalsa, 60000);
   try {
-    await esperarCallback((callback) => store.set('sesion-2', sessionData, callback));
+    await esperarFinalizacion((funcionFinalizacion) => almacenSesion.set('sesion-2', datosSesion, funcionFinalizacion));
   } finally {
-    store.close();
+    almacenSesion.close();
   }
 });
 
 test('una sesion con JSON danado se trata como inexistente', async () => {
-  const db = {
+  const baseDatosFalsa = {
     async query() {
       return { rows: [{ data: '{no-es-json' }] };
     },
   };
-  const store = new PostgresSessionStore(db, 60000);
+  const almacenSesion = new PostgresSessionStore(baseDatosFalsa, 60000);
   try {
-    const sesion = await esperarCallback((callback) => store.get('sesion-danada', callback));
+    const sesion = await esperarFinalizacion((funcionFinalizacion) => almacenSesion.get('sesion-danada', funcionFinalizacion));
     assert.equal(sesion, null);
   } finally {
-    store.close();
+    almacenSesion.close();
   }
 });
 
 test('elimina una sesion al cerrar sesion', async () => {
-  const db = {
+  const baseDatosFalsa = {
     async query(sql, valores) {
       assert.match(sql, /DELETE FROM sesiones WHERE session_id = \$1/);
       assert.deepEqual(valores, ['sesion-3']);
       return { rowCount: 1 };
     },
   };
-  const store = new PostgresSessionStore(db, 60000);
+  const almacenSesion = new PostgresSessionStore(baseDatosFalsa, 60000);
   try {
-    await esperarCallback((callback) => store.destroy('sesion-3', callback));
+    await esperarFinalizacion((funcionFinalizacion) => almacenSesion.destroy('sesion-3', funcionFinalizacion));
   } finally {
-    store.close();
+    almacenSesion.close();
   }
 });

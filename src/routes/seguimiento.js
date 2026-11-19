@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db, consulta } from '../db.js';
+import { baseDatos, consulta } from '../db.js';
 import { calcula_racha_maxima, clasificar_riesgo } from '../alertas.js';
 import { crearTokenCsrf, protegerCsrf, requerirLogin, validarId } from '../security.js';
 
@@ -11,9 +11,9 @@ const estadosAlertaPermitidos = new Set(['pendiente', 'atendida']);
 const formatosFotoPermitidos = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 /* Fotos: comprobar formato y limitar el peso antes de guardar datos binarios. */
-function decodificarFoto(dataUrl) {
-  if (typeof dataUrl !== 'string' || dataUrl.length > 245000) return null;
-  const coincidencia = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+function decodificarFoto(urlDatos) {
+  if (typeof urlDatos !== 'string' || urlDatos.length > 245000) return null;
+  const coincidencia = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(urlDatos);
   if (!coincidencia || !formatosFotoPermitidos.has(coincidencia[1])) return null;
   const datos = Buffer.from(coincidencia[2], 'base64');
   if (datos.length > 180000) return null;
@@ -27,40 +27,40 @@ function decodificarFoto(dataUrl) {
   return { datos, tipo: coincidencia[1] };
 }
 
-router.get('/fotos/estudiantes/:id', requerirLogin, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id) return res.sendStatus(404);
+router.get('/fotos/estudiantes/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id) return respuesta.sendStatus(404);
   try {
-    const permiso = req.user.rol === 'docente'
+    const permiso = solicitud.user.rol === 'docente'
       ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = e.seccion_id AND sd.docente_id = $2)'
       : '';
-    const valores = req.user.rol === 'docente' ? [id, req.user.id] : [id];
+    const valores = solicitud.user.rol === 'docente' ? [id, solicitud.user.id] : [id];
     const filas = await consulta(
       `SELECT e.foto_data, e.foto_tipo FROM estudiantes e WHERE e.id = $1 AND e.activo IS TRUE ${permiso} LIMIT 1`, valores,
     );
-    if (!filas[0]?.foto_data) return res.sendStatus(404);
-    res.set({ 'Content-Type': filas[0].foto_tipo, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
-    return res.send(filas[0].foto_data);
-  } catch (error) { return next(error); }
+    if (!filas[0]?.foto_data) return respuesta.sendStatus(404);
+    respuesta.set({ 'Content-Type': filas[0].foto_tipo, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
+    return respuesta.send(filas[0].foto_data);
+  } catch (error) { return siguiente(error); }
 });
 
-router.get('/fotos/usuarios/:id', requerirLogin, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  if (!id || (req.user.rol !== 'admin' && Number(req.user.id) !== id)) return res.sendStatus(404);
+router.get('/fotos/usuarios/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  if (!id || (solicitud.user.rol !== 'admin' && Number(solicitud.user.id) !== id)) return respuesta.sendStatus(404);
   try {
     const filas = await consulta('SELECT foto_data, foto_tipo FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1', [id]);
-    if (!filas[0]?.foto_data) return res.sendStatus(404);
-    res.set({ 'Content-Type': filas[0].foto_tipo, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
-    return res.send(filas[0].foto_data);
-  } catch (error) { return next(error); }
+    if (!filas[0]?.foto_data) return respuesta.sendStatus(404);
+    respuesta.set({ 'Content-Type': filas[0].foto_tipo, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
+    return respuesta.send(filas[0].foto_data);
+  } catch (error) { return siguiente(error); }
 });
 
-router.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (req, res, next) => {
-  const id = validarId(req.params.id);
-  const { tipo } = req.params;
-  const foto = decodificarFoto(req.body?.foto);
+router.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const id = validarId(solicitud.params.id);
+  const { tipo } = solicitud.params;
+  const foto = decodificarFoto(solicitud.body?.foto);
   if (!id || !foto || !['estudiante', 'usuario'].includes(tipo)) {
-    return res.status(400).json({ error: 'La imagen no es valida o supera el tamano permitido.' });
+    return respuesta.status(400).json({ error: 'La imagen no es valida o supera el tamano permitido.' });
   }
   try {
     if (tipo === 'estudiante') {
@@ -68,17 +68,17 @@ router.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (req, res, ne
         `SELECT e.id FROM estudiantes e WHERE e.id = $1 AND e.activo IS TRUE
          AND ($2::text = 'admin' OR EXISTS (
            SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = e.seccion_id AND sd.docente_id = $3
-         )) LIMIT 1`, [id, req.user.rol, req.user.id],
+         )) LIMIT 1`, [id, solicitud.user.rol, solicitud.user.id],
       );
-      if (!acceso.length) return res.status(404).json({ error: 'No se encontro el registro autorizado.' });
+      if (!acceso.length) return respuesta.status(404).json({ error: 'No se encontro el registro autorizado.' });
       await consulta('UPDATE estudiantes SET foto_data = $1, foto_tipo = $2 WHERE id = $3', [foto.datos, foto.tipo, id]);
     } else {
-      const puedeEditar = req.user.rol === 'admin' || Number(req.user.id) === id;
-      if (!puedeEditar) return res.status(403).json({ error: 'No tienes permiso para cambiar esa foto.' });
+      const puedeEditar = solicitud.user.rol === 'admin' || Number(solicitud.user.id) === id;
+      if (!puedeEditar) return respuesta.status(403).json({ error: 'No tienes permiso para cambiar esa foto.' });
       await consulta('UPDATE usuarios SET foto_data = $1, foto_tipo = $2 WHERE id = $3 AND activo IS TRUE', [foto.datos, foto.tipo, id]);
     }
-    return res.json({ ok: true });
-  } catch (error) { return next(error); }
+    return respuesta.json({ ok: true });
+  } catch (error) { return siguiente(error); }
 });
 
 /*
@@ -93,82 +93,82 @@ async function buscarCuentaActual(id) {
   return filas[0] || null;
 }
 
-async function mostrarCuenta(res, id, error = null, valoresPerfil = null) {
+async function mostrarCuenta(respuesta, id, error = null, valoresPerfil = null) {
   const cuentaActual = await buscarCuentaActual(id);
-  if (!cuentaActual) return res.status(404).render('error', { mensaje: 'La cuenta no esta disponible.' });
-  return res.status(error ? 400 : 200).render('cuenta', { error, cuentaActual, valoresPerfil });
+  if (!cuentaActual) return respuesta.status(404).render('error', { mensaje: 'La cuenta no esta disponible.' });
+  return respuesta.status(error ? 400 : 200).render('cuenta', { error, cuentaActual, valoresPerfil });
 }
 
-router.get('/cuenta', requerirLogin, async (req, res, next) => {
+router.get('/cuenta', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
-    return await mostrarCuenta(res, req.user.id);
+    return await mostrarCuenta(respuesta, solicitud.user.id);
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (req, res, next) => {
-  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
-  const cedula = typeof req.body.cedula === 'string' ? req.body.cedula.trim() : '';
-  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
-  const claveActual = typeof req.body.clave_actual_perfil === 'string' ? req.body.clave_actual_perfil : '';
+router.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
+  const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
+  const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
+  const claveActual = typeof solicitud.body.clave_actual_perfil === 'string' ? solicitud.body.clave_actual_perfil : '';
   const valoresPerfil = { nombre, cedula, usuario };
 
   if (!nombre || nombre.length > 120 || !/^[0-9]{7,8}$/.test(cedula)
       || !/^[a-zA-Z0-9._-]{3,50}$/.test(usuario) || !claveActual || claveActual.length > 200) {
-    return mostrarCuenta(res, req.user.id, 'Revisa el nombre, la cédula, el usuario y la contraseña actual.', valoresPerfil).catch(next);
+    return mostrarCuenta(respuesta, solicitud.user.id, 'Revisa el nombre, la cédula, el usuario y la contraseña actual.', valoresPerfil).catch(siguiente);
   }
 
   try {
     const filas = await consulta(
       'SELECT password_hash FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
-      [req.user.id],
+      [solicitud.user.id],
     );
     if (!filas[0] || !(await bcrypt.compare(claveActual, filas[0].password_hash))) {
-      return await mostrarCuenta(res, req.user.id, 'La contraseña actual no es correcta.', valoresPerfil);
+      return await mostrarCuenta(respuesta, solicitud.user.id, 'La contraseña actual no es correcta.', valoresPerfil);
     }
 
     // El perfil solo cambia datos propios; el rol y la actividad quedan bajo administracion.
     await consulta(
       'UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3 WHERE id = $4 AND activo IS TRUE',
-      [nombre, cedula, usuario, req.user.id],
+      [nombre, cedula, usuario, solicitud.user.id],
     );
-    req.session.flash = 'Los datos de tu cuenta se actualizaron.';
-    return res.redirect('/cuenta');
+    solicitud.session.flash = 'Los datos de tu cuenta se actualizaron.';
+    return respuesta.redirect('/cuenta');
   } catch (error) {
     if (error.code === '23505') {
-      return mostrarCuenta(res, req.user.id, 'Ese usuario o cédula ya pertenece a otra cuenta.', valoresPerfil).catch(next);
+      return mostrarCuenta(respuesta, solicitud.user.id, 'Ese usuario o cédula ya pertenece a otra cuenta.', valoresPerfil).catch(siguiente);
     }
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (req, res, next) => {
-  const claveActual = typeof req.body.clave_actual === 'string' ? req.body.clave_actual : '';
-  const claveNueva = typeof req.body.clave_nueva === 'string' ? req.body.clave_nueva : '';
-  const confirmarClave = typeof req.body.confirmar_clave === 'string' ? req.body.confirmar_clave : '';
+router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const claveActual = typeof solicitud.body.clave_actual === 'string' ? solicitud.body.clave_actual : '';
+  const claveNueva = typeof solicitud.body.clave_nueva === 'string' ? solicitud.body.clave_nueva : '';
+  const confirmarClave = typeof solicitud.body.confirmar_clave === 'string' ? solicitud.body.confirmar_clave : '';
   if (claveNueva.length < 4 || claveNueva.length > 200 || claveNueva !== confirmarClave) {
-    return mostrarCuenta(res, req.user.id, 'La nueva contraseña debe tener al menos 4 caracteres y coincidir.').catch(next);
+    return mostrarCuenta(respuesta, solicitud.user.id, 'La nueva contraseña debe tener al menos 4 caracteres y coincidir.').catch(siguiente);
   }
 
   try {
     const filas = await consulta(
       'SELECT password_hash FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
-      [req.user.id],
+      [solicitud.user.id],
     );
     if (!filas[0] || !(await bcrypt.compare(claveActual, filas[0].password_hash))) {
-      return await mostrarCuenta(res, req.user.id, 'La contraseña actual no es correcta.');
+      return await mostrarCuenta(respuesta, solicitud.user.id, 'La contraseña actual no es correcta.');
     }
     const passwordHash = await bcrypt.hash(claveNueva, 12);
-    await consulta('UPDATE usuarios SET password_hash = $1 WHERE id = $2 AND activo IS TRUE', [passwordHash, req.user.id]);
+    await consulta('UPDATE usuarios SET password_hash = $1 WHERE id = $2 AND activo IS TRUE', [passwordHash, solicitud.user.id]);
 
-    await new Promise((resolve, reject) => req.session.regenerate((error) => error ? reject(error) : resolve()));
-    req.session.userId = req.user.id;
-    req.session.csrfToken = crearTokenCsrf();
-    req.session.flash = 'Contraseña actualizada.';
-    return req.session.save((error) => error ? next(error) : res.redirect('/cuenta'));
+    await new Promise((resolver, rechazar) => solicitud.session.regenerate((error) => error ? rechazar(error) : resolver()));
+    solicitud.session.userId = solicitud.user.id;
+    solicitud.session.csrfToken = crearTokenCsrf();
+    solicitud.session.flash = 'Contraseña actualizada.';
+    return solicitud.session.save((error) => error ? siguiente(error) : respuesta.redirect('/cuenta'));
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
@@ -288,19 +288,19 @@ async function calcularAlerta(conexion, idEstudiante, hoy = null) {
  * Pase de lista: GET prepara la vista; POST vuelve a validar seccion, fecha y
  * lista de estudiantes, luego guarda asistencia y alertas como una transaccion.
  */
-router.get('/asistencia', requerirLogin, async (req, res, next) => {
+router.get('/asistencia', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // Las secciones y la fecha de negocio son independientes: se piden en paralelo.
     const [secciones, filaHoy] = await Promise.all([
-      seccionesDisponibles(req.user),
+      seccionesDisponibles(solicitud.user),
       consulta('SELECT CURRENT_DATE AS hoy'),
     ]);
     const hoy = filaHoy[0].hoy;
-    const idSeccion = validarId(req.query.seccion) || Number(secciones[0]?.id || 0);
-    const fecha = esFechaValida(req.query.fecha) ? req.query.fecha : hoy;
+    const idSeccion = validarId(solicitud.query.seccion) || Number(secciones[0]?.id || 0);
+    const fecha = esFechaValida(solicitud.query.fecha) ? solicitud.query.fecha : hoy;
     const seccionPermitida = secciones.some((seccion) => Number(seccion.id) === idSeccion);
     if (idSeccion && !seccionPermitida) {
-      return res.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
+      return respuesta.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
     }
 
     let estudiantes = [];
@@ -313,42 +313,42 @@ router.get('/asistencia', requerirLogin, async (req, res, next) => {
       );
     }
 
-    return res.render('asistencia', { secciones, estudiantes, idSeccion, fecha, hoy });
+    return respuesta.render('asistencia', { secciones, estudiantes, idSeccion, fecha, hoy });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) => {
+router.post('/asistencia', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   // Rechazar una seccion o fecha mal formada antes de abrir una transaccion.
-  const idSeccion = validarId(String(req.body.seccion_id || ''));
-  const fecha = req.body.fecha;
+  const idSeccion = validarId(String(solicitud.body.seccion_id || ''));
+  const fecha = solicitud.body.fecha;
   if (!idSeccion || !esFechaValida(fecha)) {
-    req.session.flash = 'Revisa la seccion y la fecha de asistencia.';
-    return res.redirect('/asistencia');
+    solicitud.session.flash = 'Revisa la seccion y la fecha de asistencia.';
+    return respuesta.redirect('/asistencia');
   }
 
-  const conexion = await db.connect();
+  const conexion = await baseDatos.connect();
   try {
     // La fecha se valida contra PostgreSQL para usar el calendario de la escuela.
     await conexion.query('BEGIN');
     const { rows: [{ hoy }] } = await conexion.query('SELECT CURRENT_DATE AS hoy');
     if (fecha > hoy) {
       await conexion.query('ROLLBACK');
-      req.session.flash = 'No se puede registrar asistencia para una fecha futura.';
-      return res.redirect('/asistencia');
+      solicitud.session.flash = 'No se puede registrar asistencia para una fecha futura.';
+      return respuesta.redirect('/asistencia');
     }
 
     // Confirmar que el docente esta asignado a la seccion solicitada.
     const { rows: secciones } = await conexion.query(
-      `SELECT id FROM secciones WHERE id = $1 ${req.user.rol === 'docente'
+      `SELECT id FROM secciones WHERE id = $1 ${solicitud.user.rol === 'docente'
         ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = secciones.id AND sd.docente_id = $2)'
         : ''}`,
-      req.user.rol === 'docente' ? [idSeccion, req.user.id] : [idSeccion],
+      solicitud.user.rol === 'docente' ? [idSeccion, solicitud.user.id] : [idSeccion],
     );
     if (secciones.length === 0) {
       await conexion.query('ROLLBACK');
-      return res.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
+      return respuesta.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
     }
 
     // Tomar la lista real del servidor y exigir un estado para cada estudiante activo.
@@ -357,18 +357,18 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
       [idSeccion],
     );
     // Los campos usan estado_<id>; asi el parser no confunde estudiantes con indices de un arreglo.
-    const validacionEntradas = validarEntradasAsistencia(req.body, estudiantes);
+    const validacionEntradas = validarEntradasAsistencia(solicitud.body, estudiantes);
     if (validacionEntradas.tipoError) {
       await conexion.query('ROLLBACK');
 
       if (validacionEntradas.tipoError === 'faltan_estudiantes') {
-        req.session.flash = 'La lista debe incluir a todos los estudiantes activos de la seccion.';
-        return res.redirect(`/asistencia?seccion=${idSeccion}&fecha=${fecha}`);
+        solicitud.session.flash = 'La lista debe incluir a todos los estudiantes activos de la seccion.';
+        return respuesta.redirect(`/asistencia?seccion=${idSeccion}&fecha=${fecha}`);
       }
       if (validacionEntradas.tipoError === 'estado_no_permitido') {
-        return res.status(400).render('error', { mensaje: 'La lista contiene un estudiante o estado no permitido.' });
+        return respuesta.status(400).render('error', { mensaje: 'La lista contiene un estudiante o estado no permitido.' });
       }
-      return res.status(400).render('error', { mensaje: 'La observacion no es valida.' });
+      return respuesta.status(400).render('error', { mensaje: 'La observacion no es valida.' });
     }
 
     // Guardar todas las marcas en una sola operacion y recalcular alertas dentro de la transaccion.
@@ -383,7 +383,7 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
         entradas.map(() => fecha),
         entradas.map((entrada) => entrada.estado),
         entradas.map((entrada) => (entrada.observacion || '').trim().slice(0, 255) || null),
-        entradas.map(() => req.user.id),
+        entradas.map(() => solicitud.user.id),
       ],
     );
     let conRiesgo = 0;
@@ -394,11 +394,11 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
 
     // Confirmar al final hace que asistencia y alertas se guarden como una sola operacion.
     await conexion.query('COMMIT');
-    req.session.flash = `Asistencia guardada: ${validacionEntradas.entradas.length} registro(s). Estudiantes con alerta: ${conRiesgo}.`;
-    return res.redirect(`/asistencia?seccion=${idSeccion}&fecha=${fecha}`);
+    solicitud.session.flash = `Asistencia guardada: ${validacionEntradas.entradas.length} registro(s). Estudiantes con alerta: ${conRiesgo}.`;
+    return respuesta.redirect(`/asistencia?seccion=${idSeccion}&fecha=${fecha}`);
   } catch (error) {
     await conexion.query('ROLLBACK');
-    return next(error);
+    return siguiente(error);
   } finally {
     conexion.release();
   }
@@ -408,15 +408,15 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (req, res, next) =
  * Alertas: docentes ven las de sus secciones; coordinacion puede recalcular
  * todas y cualquier atencion de alerta requiere permiso y una nota.
  */
-router.get('/alertas', requerirLogin, async (req, res, next) => {
+router.get('/alertas', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // Aceptar solo filtros conocidos antes de formar la consulta.
-    const nivel = nivelesPermitidos.has(req.query.nivel) ? req.query.nivel : '';
-    const estado = estadosAlertaPermitidos.has(req.query.estado) ? req.query.estado : '';
+    const nivel = nivelesPermitidos.has(solicitud.query.nivel) ? solicitud.query.nivel : '';
+    const estado = estadosAlertaPermitidos.has(solicitud.query.estado) ? solicitud.query.estado : '';
     const filtros = [];
     const valores = [];
-    if (req.user.rol === 'docente') {
-      valores.push(req.user.id);
+    if (solicitud.user.rol === 'docente') {
+      valores.push(solicitud.user.id);
       filtros.push(`EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $${valores.length})`);
     }
     if (nivel) {
@@ -450,18 +450,18 @@ router.get('/alertas', requerirLogin, async (req, res, next) => {
       if (alerta.nivel === 'alto') resumen.alto += 1;
       if (alerta.nivel === 'medio') resumen.medio += 1;
     }
-    return res.render('alertas', { alertas, resumen, nivel, estado });
+    return respuesta.render('alertas', { alertas, resumen, nivel, estado });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (req, res, next) => {
-  if (req.user.rol !== 'admin') {
-    return res.status(403).render('error', { mensaje: 'Solo la coordinacion puede recalcular todas las alertas.' });
+router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  if (solicitud.user.rol !== 'admin') {
+    return respuesta.status(403).render('error', { mensaje: 'Solo la coordinacion puede recalcular todas las alertas.' });
   }
 
-  const conexion = await db.connect();
+  const conexion = await baseDatos.connect();
   try {
     // Recalcular todas las cuentas activas como una sola operacion confirmable.
     await conexion.query('BEGIN');
@@ -474,24 +474,24 @@ router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (req, res,
       if (riesgo.nivel !== 'bajo') conRiesgo += 1;
     }
     await conexion.query('COMMIT');
-    req.session.flash = `Recalculo terminado: ${conRiesgo} estudiante(s) con riesgo medio o alto.`;
-    return res.redirect('/alertas');
+    solicitud.session.flash = `Recalculo terminado: ${conRiesgo} estudiante(s) con riesgo medio o alto.`;
+    return respuesta.redirect('/alertas');
   } catch (error) {
     await conexion.query('ROLLBACK');
-    return next(error);
+    return siguiente(error);
   } finally {
     conexion.release();
   }
 });
 
-router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (req, res, next) => {
-  const idAlerta = validarId(req.params.id);
-  const nota = typeof req.body.nota === 'string' ? req.body.nota.trim() : '';
+router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+  const idAlerta = validarId(solicitud.params.id);
+  const nota = typeof solicitud.body.nota === 'string' ? solicitud.body.nota.trim() : '';
   if (!idAlerta || !nota || nota.length > 200) {
-    return res.status(400).render('error', { mensaje: 'Indica una nota breve para atender la alerta.' });
+    return respuesta.status(400).render('error', { mensaje: 'Indica una nota breve para atender la alerta.' });
   }
 
-  const conexion = await db.connect();
+  const conexion = await baseDatos.connect();
   try {
     await conexion.query('BEGIN');
     // Bloquear esta alerta mientras se comprueba el permiso y se registra su atencion.
@@ -505,33 +505,33 @@ router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (req, res
        INNER JOIN estudiantes e ON e.id = a.estudiante_id
        INNER JOIN secciones s ON s.id = e.seccion_id
       WHERE a.id = $1 FOR UPDATE`,
-      [idAlerta, req.user.id],
+      [idAlerta, solicitud.user.id],
     );
     const alerta = alertas[0];
     if (!alerta) {
       await conexion.query('ROLLBACK');
-      return res.status(404).render('error', { mensaje: 'La alerta no existe.' });
+      return respuesta.status(404).render('error', { mensaje: 'La alerta no existe.' });
     }
-    if (req.user.rol === 'docente' && !alerta.docente_asignado) {
+    if (solicitud.user.rol === 'docente' && !alerta.docente_asignado) {
       await conexion.query('ROLLBACK');
-      return res.status(403).render('error', { mensaje: 'No tienes acceso a esa alerta.' });
+      return respuesta.status(403).render('error', { mensaje: 'No tienes acceso a esa alerta.' });
     }
     if (alerta.estado !== 'pendiente') {
       await conexion.query('ROLLBACK');
-      req.session.flash = 'La alerta ya fue atendida.';
-      return res.redirect('/alertas');
+      solicitud.session.flash = 'La alerta ya fue atendida.';
+      return respuesta.redirect('/alertas');
     }
 
     await conexion.query(
       "UPDATE alertas SET estado = 'atendida', atendida_por = $1, mensaje = $2 WHERE id = $3",
-      [req.user.id, `${alerta.mensaje} | ATENDIDA: ${nota}`, idAlerta],
+      [solicitud.user.id, `${alerta.mensaje} | ATENDIDA: ${nota}`, idAlerta],
     );
     await conexion.query('COMMIT');
-    req.session.flash = 'Alerta atendida correctamente.';
-    return res.redirect('/alertas');
+    solicitud.session.flash = 'Alerta atendida correctamente.';
+    return respuesta.redirect('/alertas');
   } catch (error) {
     await conexion.query('ROLLBACK');
-    return next(error);
+    return siguiente(error);
   } finally {
     conexion.release();
   }
@@ -582,23 +582,23 @@ function resumirReportes(filas) {
   return { resumenRegistros, totalRegistros, asistenciaGeneral, resumenCursos };
 }
 
-router.get('/reportes/estudiantes/:id', requerirLogin, async (req, res, next) => {
-  const idEstudiante = validarId(req.params.id);
-  if (!idEstudiante) return res.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
+router.get('/reportes/estudiantes/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
+  const idEstudiante = validarId(solicitud.params.id);
+  if (!idEstudiante) return respuesta.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
   try {
     const [filaHoy] = await consulta(
       // El alias va en minusculas porque PostgreSQL dobla los nombres sin comillas.
       'SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicio_defecto',
     );
     const { hoy, inicio_defecto: inicioDefecto } = filaHoy;
-    const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
-    const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
-    if (desde > hasta) return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
+    const desde = esFechaValida(solicitud.query.desde) && solicitud.query.desde <= hoy ? solicitud.query.desde : inicioDefecto;
+    const hasta = esFechaValida(solicitud.query.hasta) && solicitud.query.hasta <= hoy ? solicitud.query.hasta : hoy;
+    if (desde > hasta) return respuesta.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
     const valoresEstudiante = [idEstudiante];
-    const permisoDocente = req.user.rol === 'docente'
+    const permisoDocente = solicitud.user.rol === 'docente'
       ? 'AND EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $2)'
       : '';
-    if (req.user.rol === 'docente') valoresEstudiante.push(req.user.id);
+    if (solicitud.user.rol === 'docente') valoresEstudiante.push(solicitud.user.id);
     // Identidad e historial no dependen entre si: se consultan al mismo tiempo.
     const [estudiante, historial] = await Promise.all([
       consulta(
@@ -612,42 +612,42 @@ router.get('/reportes/estudiantes/:id', requerirLogin, async (req, res, next) =>
          WHERE estudiante_id = $1 AND fecha BETWEEN $2 AND $3 ORDER BY fecha DESC`, [idEstudiante, desde, hasta],
       ),
     ]);
-    if (!estudiante[0]) return res.status(404).render('error', { mensaje: 'El estudiante no existe o no tienes acceso.' });
-    return res.render('reporte-estudiante', { estudiante: estudiante[0], historial, desde, hasta, hoy });
-  } catch (error) { return next(error); }
+    if (!estudiante[0]) return respuesta.status(404).render('error', { mensaje: 'El estudiante no existe o no tienes acceso.' });
+    return respuesta.render('reporte-estudiante', { estudiante: estudiante[0], historial, desde, hasta, hoy });
+  } catch (error) { return siguiente(error); }
 });
 
-router.get('/reportes', requerirLogin, async (req, res, next) => {
+router.get('/reportes', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // La fecha de negocio, las secciones y los cursos no dependen entre si.
     const [filaHoy, secciones, cursos] = await Promise.all([
       consulta('SELECT CURRENT_DATE AS hoy, CURRENT_DATE - 29 AS inicio_defecto'),
-      seccionesDisponibles(req.user),
-      req.user.rol === 'admin'
+      seccionesDisponibles(solicitud.user),
+      solicitud.user.rol === 'admin'
         ? consulta('SELECT id, nombre FROM cursos ORDER BY nombre')
         : consulta(
           `SELECT DISTINCT c.id, c.nombre FROM cursos c
            INNER JOIN secciones s ON s.curso_id = c.id
            INNER JOIN seccion_docentes sd ON sd.seccion_id = s.id
            WHERE sd.docente_id = $1 ORDER BY c.nombre`,
-          [req.user.id],
+          [solicitud.user.id],
         ),
     ]);
     const { hoy, inicio_defecto: inicioDefecto } = filaHoy[0];
-    const desde = esFechaValida(req.query.desde) && req.query.desde <= hoy ? req.query.desde : inicioDefecto;
-    const hasta = esFechaValida(req.query.hasta) && req.query.hasta <= hoy ? req.query.hasta : hoy;
+    const desde = esFechaValida(solicitud.query.desde) && solicitud.query.desde <= hoy ? solicitud.query.desde : inicioDefecto;
+    const hasta = esFechaValida(solicitud.query.hasta) && solicitud.query.hasta <= hoy ? solicitud.query.hasta : hoy;
     if (desde > hasta) {
-      return res.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
+      return respuesta.status(400).render('error', { mensaje: 'El inicio del rango debe ser anterior al final.' });
     }
     // Limpiar los IDs antes de usarlos; secciones y cursos ya respetan el alcance autorizado.
-    const idCurso = validarId(typeof req.query.curso === 'string' ? req.query.curso : '');
-    const idSeccion = validarId(typeof req.query.seccion === 'string' ? req.query.seccion : '');
+    const idCurso = validarId(typeof solicitud.query.curso === 'string' ? solicitud.query.curso : '');
+    const idSeccion = validarId(typeof solicitud.query.seccion === 'string' ? solicitud.query.seccion : '');
 
     // Armar condiciones con placeholders para que los filtros no formen SQL libre.
     const valores = [desde, hasta];
     const filtros = ['e.activo IS TRUE'];
-    if (req.user.rol === 'docente') {
-      valores.push(req.user.id);
+    if (solicitud.user.rol === 'docente') {
+      valores.push(solicitud.user.id);
       filtros.push(`EXISTS (SELECT 1 FROM seccion_docentes sd WHERE sd.seccion_id = s.id AND sd.docente_id = $${valores.length})`);
     }
     if (idCurso) {
@@ -656,7 +656,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
     }
     if (idSeccion) {
       if (!secciones.some((seccion) => Number(seccion.id) === idSeccion)) {
-        return res.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
+        return respuesta.status(403).render('error', { mensaje: 'No tienes acceso a esa seccion.' });
       }
       valores.push(idSeccion);
       filtros.push(`s.id = $${valores.length}`);
@@ -684,7 +684,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
     // Los graficos y la tabla salen de las mismas filas filtradas.
     const { resumenRegistros, totalRegistros, asistenciaGeneral, resumenCursos } = resumirReportes(filas);
 
-    return res.render('reportes', {
+    return respuesta.render('reportes', {
       filas,
       cursos,
       secciones,
@@ -699,7 +699,7 @@ router.get('/reportes', requerirLogin, async (req, res, next) => {
       asistenciaGeneral,
     });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 

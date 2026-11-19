@@ -38,5 +38,5 @@ export function esErrorTransitorio(error) {
 }
 
 export function esperarReintento(milisegundos = 120) {
-  return new Promise((resolve) => setTimeout(resolve, milisegundos));
+  return new Promise((resolver) => setTimeout(resolver, milisegundos));
 }

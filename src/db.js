@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { config } from './config.js';
+import { configuracion } from './config.js';
 import { esErrorTransitorio, esperarReintento } from './errores.js';
 
 /*
@@ -12,8 +12,8 @@ const { Pool, types } = pg;
 types.setTypeParser(1082, (fecha) => fecha);
 
 // El pool reutiliza conexiones; TLS comprueba el certificado de PostgreSQL.
-export const pool = new Pool({
-  connectionString: config.databaseUrl,
+export const grupoConexiones = new Pool({
+  connectionString: configuracion.urlBaseDatos,
   ssl: { rejectUnauthorized: true },
   max: 10,
   connectionTimeoutMillis: 10000,
@@ -24,10 +24,10 @@ export const pool = new Pool({
   query_timeout: 15000,
 });
 
-export const db = pool;
+export const baseDatos = grupoConexiones;
 
 // Si Neon cierra una conexion inactiva, registrar el codigo sin tumbar el proceso.
-pool.on('error', (error) => {
+grupoConexiones.on('error', (error) => {
   console.error('[asistencia] Conexion inactiva cerrada:', JSON.stringify({
     codigo: error.code || error.name || 'desconocido',
   }));
@@ -38,7 +38,7 @@ function esLectura(sql) {
 }
 
 async function ejecutarConsulta(sql, valores) {
-  const respuesta = await db.query(sql, valores);
+  const respuesta = await baseDatos.query(sql, valores);
   return respuesta.rows;
 }
 

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { config } from '../src/config.js';
+import { configuracion } from '../src/config.js';
 import { separarSentenciasSql } from '../src/sql.js';
 
 const carpetaActual = path.dirname(fileURLToPath(import.meta.url));
@@ -12,8 +12,8 @@ const confirmoReinstalacion = process.argv.includes('--confirmar');
 const tablasPrincipales = ['usuarios', 'cursos', 'secciones', 'estudiantes', 'asistencia', 'alertas'];
 const tablasParaResumen = [...tablasPrincipales, 'seccion_docentes'];
 const { Pool } = pg;
-const pool = new Pool({
-  connectionString: config.databaseUrl,
+const grupoConexiones = new Pool({
+  connectionString: configuracion.urlBaseDatos,
   ssl: { rejectUnauthorized: true },
   max: 2,
   connectionTimeoutMillis: 10000,
@@ -30,12 +30,12 @@ async function ejecutarArchivo(nombre) {
   const rutaArchivo = path.join(carpetaProyecto, 'sql', nombre);
   const contenidoArchivo = await readFile(rutaArchivo, 'utf8');
   const sentencias = separarSentenciasSql(contenidoArchivo);
-  for (const sentencia of sentencias) await pool.query(sentencia);
+  for (const sentencia of sentencias) await grupoConexiones.query(sentencia);
   console.log(`${nombre}: ${sentencias.length} sentencia(s) ejecutadas.`);
 }
 
 async function migrarNumeroLista() {
-  const { rows: [columnas] } = await pool.query(
+  const { rows: [columnas] } = await grupoConexiones.query(
     `SELECT
        EXISTS (
          SELECT 1 FROM information_schema.columns
@@ -55,7 +55,7 @@ async function migrarNumeroLista() {
 }
 
 async function migrarDocentesSeccion() {
-  const { rows: [columnas] } = await pool.query(
+  const { rows: [columnas] } = await grupoConexiones.query(
     `SELECT
        EXISTS (
          SELECT 1 FROM information_schema.columns
@@ -82,7 +82,7 @@ async function migrarDocentesSeccion() {
  */
 try {
   // Primero confirmar si existe el esquema completo o si hay una instalacion parcial.
-  const { rows: [{ total }] } = await pool.query(
+  const { rows: [{ total }] } = await grupoConexiones.query(
     `SELECT COUNT(*) AS total
      FROM information_schema.tables
      WHERE table_schema = current_schema() AND table_name = ANY($1::text[])`,
@@ -102,7 +102,7 @@ try {
 
   // Solo crear datos demo en una base nueva o en una reinstalacion confirmada.
   if (!esquemaCompleto || esReinstalacionForzada) {
-    const { rows: [{ total: usuarios }] } = await pool.query('SELECT COUNT(*) AS total FROM usuarios');
+    const { rows: [{ total: usuarios }] } = await grupoConexiones.query('SELECT COUNT(*) AS total FROM usuarios');
     if (Number(usuarios) > 0 && !esReinstalacionForzada) {
       throw new Error('La tabla usuarios no esta vacia; se cancelo para evitar duplicar el demo.');
     }
@@ -117,13 +117,13 @@ try {
   await ejecutarArchivo('migracion_fotos.sql');
   await ejecutarArchivo('migracion_rendimiento.sql');
   await ejecutarArchivo('sesiones.sql');
-  if (esReinstalacionForzada) await pool.query('DELETE FROM sesiones');
+  if (esReinstalacionForzada) await grupoConexiones.query('DELETE FROM sesiones');
 
   for (const tabla of tablasParaResumen) {
-    const { rows: [{ total: cantidad }] } = await pool.query(`SELECT COUNT(*) AS total FROM ${tabla}`);
+    const { rows: [{ total: cantidad }] } = await grupoConexiones.query(`SELECT COUNT(*) AS total FROM ${tabla}`);
     console.log(`${tabla}: ${cantidad}`);
   }
-  const { rows: [{ total: pendientes }] } = await pool.query(
+  const { rows: [{ total: pendientes }] } = await grupoConexiones.query(
     "SELECT COUNT(*) AS total FROM alertas WHERE estado = 'pendiente'",
   );
   console.log(`Alertas pendientes: ${pendientes}`);
@@ -131,5 +131,5 @@ try {
   console.error('[instalacion] No se completo:', error.code || error.name || 'error');
   process.exitCode = 1;
 } finally {
-  await pool.end();
+  await grupoConexiones.end();
 }

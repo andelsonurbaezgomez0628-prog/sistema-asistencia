@@ -10,9 +10,9 @@ export function crearTokenCsrf() {
  * Compara el token enviado con el de la sesion sin revelar cual fallo.
  * Devuelve un estado para que cada ruta decida el mensaje adecuado.
  */
-export function estadoTokenCsrf(req) {
-  const tokenEnviado = req.body?._csrf;
-  const tokenDeSesion = req.session?.csrfToken;
+export function estadoTokenCsrf(solicitud) {
+  const tokenEnviado = solicitud.body?._csrf;
+  const tokenDeSesion = solicitud.session?.csrfToken;
 
   if (typeof tokenEnviado !== 'string' || typeof tokenDeSesion !== 'string') {
     return 'faltante';
@@ -27,59 +27,59 @@ export function estadoTokenCsrf(req) {
   return sonIguales ? 'valido' : 'invalido';
 }
 
-export function protegerCsrf(req, res, next) {
-  const estado = estadoTokenCsrf(req);
+export function protegerCsrf(solicitud, respuesta, siguiente) {
+  const estado = estadoTokenCsrf(solicitud);
 
   if (estado === 'faltante') {
-    return res.status(403).render('error', { mensaje: 'La solicitud vencio. Recarga la pagina.' });
+    return respuesta.status(403).render('error', { mensaje: 'La solicitud vencio. Recarga la pagina.' });
   }
   if (estado === 'invalido') {
-    return res.status(403).render('error', { mensaje: 'La solicitud no es valida.' });
+    return respuesta.status(403).render('error', { mensaje: 'La solicitud no es valida.' });
   }
 
-  return next();
+  return siguiente();
 }
 
 /* Identidad: la sesion identifica al usuario, pero la base confirma que siga activo. */
 export function crearCargarUsuarioActual(consulta) {
-  return async function cargarUsuarioActual(req, res, next) {
-    if (!req.session.userId) return next();
+  return async function cargarUsuarioActual(solicitud, respuesta, siguiente) {
+    if (!solicitud.session.userId) return siguiente();
 
     try {
       // La sesion identifica la cuenta, pero PostgreSQL confirma que siga activa.
       const cuentasActivas = await consulta(
         'SELECT id, nombre, usuario, rol, foto_data IS NOT NULL AS tiene_foto FROM usuarios WHERE id = $1 AND activo = TRUE LIMIT 1',
-        [req.session.userId],
+        [solicitud.session.userId],
       );
 
       if (cuentasActivas.length === 0) {
         // La cuenta pudo desactivarse despues de iniciar sesion; se invalida su cookie aqui.
-        return req.session.destroy(() => {
-          res.clearCookie('asistencia.sid');
-          res.redirect('/login');
+        return solicitud.session.destroy(() => {
+          respuesta.clearCookie('asistencia.sid');
+          respuesta.redirect('/login');
         });
       }
 
-      req.user = cuentasActivas[0];
-      return next();
+      solicitud.user = cuentasActivas[0];
+      return siguiente();
     } catch (error) {
-      return next(error);
+      return siguiente(error);
     }
   };
 }
 
 /* Acceso a rutas: primero se exige sesion y despues se comprueba el rol requerido. */
-export function requerirLogin(req, res, next) {
-  if (!req.user) return res.redirect('/login');
-  return next();
+export function requerirLogin(solicitud, respuesta, siguiente) {
+  if (!solicitud.user) return respuesta.redirect('/login');
+  return siguiente();
 }
 
-export function requerirAdmin(req, res, next) {
-  if (!req.user) return res.redirect('/login');
-  if (req.user.rol !== 'admin') {
-    return res.status(403).render('error', { mensaje: 'No tienes permiso para realizar esa accion.' });
+export function requerirAdmin(solicitud, respuesta, siguiente) {
+  if (!solicitud.user) return respuesta.redirect('/login');
+  if (solicitud.user.rol !== 'admin') {
+    return respuesta.status(403).render('error', { mensaje: 'No tienes permiso para realizar esa accion.' });
   }
-  return next();
+  return siguiente();
 }
 
 export function validarId(valor) {

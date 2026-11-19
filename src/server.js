@@ -5,8 +5,8 @@ import express from 'express';
 import session from 'express-session';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
-import { pool, consulta } from './db.js';
-import { config } from './config.js';
+import { grupoConexiones, consulta } from './db.js';
+import { configuracion } from './config.js';
 import { esErrorTransitorio } from './errores.js';
 import { PostgresSessionStore } from './session-store.js';
 import seguimiento from './routes/seguimiento.js';
@@ -21,20 +21,20 @@ import {
 
 const archivoActual = fileURLToPath(import.meta.url);
 const carpetaActual = path.dirname(archivoActual);
-const carpetaProyecto = path.resolve(carpetaActual, '..');
-const app = express();
-const sessionStore = new PostgresSessionStore(pool);
+const carpetaProyecto = path.resolver(carpetaActual, '..');
+const servidorWeb = express();
+const almacenSesiones = new PostgresSessionStore(grupoConexiones);
 
 /* Vistas y cabeceras de seguridad */
-app.set('view engine', 'ejs');
-app.set('views', path.join(carpetaProyecto, 'views'));
-app.disable('x-powered-by');
+servidorWeb.set('view engine', 'ejs');
+servidorWeb.set('views', path.join(carpetaProyecto, 'views'));
+servidorWeb.disable('x-powered-by');
 
 // 1. Preparar protecciones HTTP y archivos estaticos.
 // Render entrega el trafico mediante un proxy HTTPS: confiar en un salto
 // permite cookies Secure y que el rate limit lea la IP real del cliente.
-if (config.trustProxy) app.set('trust proxy', 1);
-app.use(helmet({
+if (configuracion.confiarEnProxy) servidorWeb.set('trust proxy', 1);
+servidorWeb.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -48,12 +48,12 @@ app.use(helmet({
   },
 }));
 
-app.get('/.well-known/assetlinks.json', (req, res) => {
-  const aplicacion = config.androidAssetLinksByHost[req.hostname.toLowerCase()];
-  if (!aplicacion) return res.sendStatus(404);
+servidorWeb.get('/.well-known/assetlinks.json', (solicitud, respuesta) => {
+  const aplicacion = configuracion.enlacesAndroidPorServidor[solicitud.hostname.toLowerCase()];
+  if (!aplicacion) return respuesta.sendStatus(404);
 
-  res.set('Cache-Control', 'public, max-age=3600');
-  return res.json([{
+  respuesta.set('Cache-Control', 'public, max-age=3600');
+  return respuesta.json([{
     relation: ['delegate_permission/common.handle_all_urls'],
     target: {
       namespace: 'android_app',
@@ -63,47 +63,47 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
   }]);
 });
 
-app.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
-app.use(express.json({ limit: '260kb', type: 'application/json' }));
-app.use(express.static(path.join(carpetaProyecto, 'assets'), {
+servidorWeb.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
+servidorWeb.use(express.json({ limit: '260kb', type: 'application/json' }));
+servidorWeb.use(express.static(path.join(carpetaProyecto, 'assets'), {
   index: false,
   dotfiles: 'deny',
   // CSS y JavaScript pequenos se reutilizan; una cache corta acelera la navegacion.
   maxAge: '5m',
 }));
 // El store PostgreSQL se configura antes de las rutas para que cada solicitud tenga sesion persistida.
-app.use(session({
+servidorWeb.use(session({
   name: 'asistencia.sid',
-  secret: config.sessionSecret,
-  store: sessionStore,
+  secret: configuracion.secretoSesion,
+  store: almacenSesiones,
   resave: false,
   saveUninitialized: false,
   rolling: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: config.cookieSecure,
+    secure: configuracion.cookieSegura,
     maxAge: 8 * 60 * 60 * 1000,
   },
 }));
 
 // 2. Preparar datos comunes que usan las vistas y cargar la cuenta de la sesion.
-app.use((req, res, next) => {
+servidorWeb.use((solicitud, respuesta, siguiente) => {
   // Las vistas reciben un token para incluirlo en todos los formularios que modifican datos.
-  if (!req.session.csrfToken) req.session.csrfToken = crearTokenCsrf();
-  res.locals.csrfToken = req.session.csrfToken;
-  res.locals.usuario = null;
-  res.locals.flash = req.session.flash || null;
-  delete req.session.flash;
+  if (!solicitud.session.csrfToken) solicitud.session.csrfToken = crearTokenCsrf();
+  respuesta.locals.csrfToken = solicitud.session.csrfToken;
+  respuesta.locals.usuario = null;
+  respuesta.locals.flash = solicitud.session.flash || null;
+  delete solicitud.session.flash;
   // Una pagina vieja en cache puede traer un token CSRF que ya no corresponde.
-  res.set('Cache-Control', 'no-store');
-  next();
+  respuesta.set('Cache-Control', 'no-store');
+  siguiente();
 });
-app.use(crearCargarUsuarioActual(consulta));
-app.use((req, res, next) => {
-  res.locals.usuario = req.user || null;
-  res.locals.rutaActual = req.path;
-  next();
+servidorWeb.use(crearCargarUsuarioActual(consulta));
+servidorWeb.use((solicitud, respuesta, siguiente) => {
+  respuesta.locals.usuario = solicitud.user || null;
+  respuesta.locals.rutaActual = solicitud.path;
+  siguiente();
 });
 
 const limiteLogin = rateLimit({
@@ -111,54 +111,54 @@ const limiteLogin = rateLimit({
   limit: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  skip: (req) => req.method !== 'POST',
+  skip: (solicitud) => solicitud.method !== 'POST',
   message: 'Demasiados intentos. Intenta de nuevo mas tarde.',
 });
 
 /* Inicio de sesion: leer campos, validar la cuenta y guardar una sesion nueva. */
-function obtenerCredenciales(req) {
-  const usuario = typeof req.body.usuario === 'string' ? req.body.usuario.trim() : '';
-  const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
+function obtenerCredenciales(solicitud) {
+  const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
+  const clave = typeof solicitud.body.clave === 'string' ? solicitud.body.clave : '';
   return { usuario, clave };
 }
 
-async function regenerarSesion(req) {
-  await new Promise((resolve, reject) => {
-    req.session.regenerate((error) => {
-      if (error) reject(error);
-      else resolve();
+async function regenerarSesion(solicitud) {
+  await new Promise((resolver, rechazar) => {
+    solicitud.session.regenerate((error) => {
+      if (error) rechazar(error);
+      else resolver();
     });
   });
 }
 
-async function guardarSesion(req) {
-  await new Promise((resolve, reject) => {
-    req.session.save((error) => {
-      if (error) reject(error);
-      else resolve();
+async function guardarSesion(solicitud) {
+  await new Promise((resolver, rechazar) => {
+    solicitud.session.save((error) => {
+      if (error) rechazar(error);
+      else resolver();
     });
   });
 }
 
 // 3. Inicio y cierre de sesion.
-app.get('/login', (req, res) => {
-  if (req.user) return res.redirect('/');
-  return res.render('login', { error: null });
+servidorWeb.get('/login', (solicitud, respuesta) => {
+  if (solicitud.user) return respuesta.redirect('/');
+  return respuesta.render('login', { error: null });
 });
 
 // Un doble toque en "Entrar" puede reutilizar una sesion recien regenerada.
 // En ese caso se vuelve al formulario con un token nuevo, no a una pagina de error.
-function validarCsrfLogin(req, res, next) {
-  if (estadoTokenCsrf(req) === 'valido') return next();
-  req.session.flash = 'La sesion se renovo. Intenta iniciar sesion de nuevo.';
-  return res.redirect('/login');
+function validarCsrfLogin(solicitud, respuesta, siguiente) {
+  if (estadoTokenCsrf(solicitud) === 'valido') return siguiente();
+  solicitud.session.flash = 'La sesion se renovo. Intenta iniciar sesion de nuevo.';
+  return respuesta.redirect('/login');
 }
 
-app.post('/login', limiteLogin, validarCsrfLogin, async (req, res, next) => {
-  const { usuario, clave } = obtenerCredenciales(req);
+servidorWeb.post('/login', limiteLogin, validarCsrfLogin, async (solicitud, respuesta, siguiente) => {
+  const { usuario, clave } = obtenerCredenciales(solicitud);
 
   if (!usuario || !clave || usuario.length > 50 || clave.length > 200) {
-    return res.status(400).render('login', { error: 'Usuario o contrasena incorrectos.' });
+    return respuesta.status(400).render('login', { error: 'Usuario o contrasena incorrectos.' });
   }
 
   try {
@@ -171,25 +171,25 @@ app.post('/login', limiteLogin, validarCsrfLogin, async (req, res, next) => {
     const contrasenaValida = cuenta ? await bcrypt.compare(clave, cuenta.password_hash) : false;
 
     if (!contrasenaValida) {
-      return res.status(401).render('login', { error: 'Usuario o contrasena incorrectos.' });
+      return respuesta.status(401).render('login', { error: 'Usuario o contrasena incorrectos.' });
     }
 
     // Crear otra sesion despues de autenticar evita reutilizar un identificador anterior.
-    await regenerarSesion(req);
-    req.session.userId = cuenta.id;
-    req.session.csrfToken = crearTokenCsrf();
-    await guardarSesion(req);
-    return res.redirect('/');
+    await regenerarSesion(solicitud);
+    solicitud.session.userId = cuenta.id;
+    solicitud.session.csrfToken = crearTokenCsrf();
+    await guardarSesion(solicitud);
+    return respuesta.redirect('/');
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-app.post('/logout', protegerCsrf, (req, res, next) => {
-  req.session.destroy((error) => {
-    if (error) return next(error);
-    res.clearCookie('asistencia.sid');
-    return res.redirect('/login');
+servidorWeb.post('/logout', protegerCsrf, (solicitud, respuesta, siguiente) => {
+  solicitud.session.destroy((error) => {
+    if (error) return siguiente(error);
+    respuesta.clearCookie('asistencia.sid');
+    return respuesta.redirect('/login');
   });
 });
 
@@ -224,63 +224,63 @@ async function obtenerResumenDocente(idDocente) {
 }
 
 // 4. Pagina principal: el resumen depende del rol confirmado en PostgreSQL.
-app.get('/', requerirLogin, async (req, res, next) => {
+servidorWeb.get('/', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // Cada rol recibe conteos construidos sobre sus propios permisos.
-    const resumen = req.user.rol === 'admin'
+    const resumen = solicitud.user.rol === 'admin'
       ? await obtenerResumenAdministrador()
-      : await obtenerResumenDocente(req.user.id);
+      : await obtenerResumenDocente(solicitud.user.id);
 
-    return res.render('dashboard', { resumen });
+    return respuesta.render('dashboard', { resumen });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-app.use('/', seguimiento);
-app.use('/gestion', administracion);
+servidorWeb.use('/', seguimiento);
+servidorWeb.use('/gestion', administracion);
 
 /* Salud del servicio y respuestas de error sin exponer SQL ni datos personales. */
-app.get('/health', async (req, res, next) => {
+servidorWeb.get('/health', async (solicitud, respuesta, siguiente) => {
   try {
     await consulta('SELECT 1');
-    return res.json({ estado: 'ok' });
+    return respuesta.json({ estado: 'ok' });
   } catch (error) {
-    return next(error);
+    return siguiente(error);
   }
 });
 
-app.use((req, res) => res.status(404).render('error', { mensaje: 'La pagina solicitada no existe.' }));
-app.use((error, req, res, next) => {
+servidorWeb.use((solicitud, respuesta) => respuesta.status(404).render('error', { mensaje: 'La pagina solicitada no existe.' }));
+servidorWeb.use((error, solicitud, respuesta, siguiente) => {
   // Registrar contexto tecnico sin incluir URL con IDs, datos personales ni detalles SQL.
   console.error('[asistencia] Error interno:', JSON.stringify({
     fecha: new Date().toISOString(),
-    metodo: req.method,
-    ruta: req.route?.path || 'sin-ruta',
+    metodo: solicitud.method,
+    ruta: solicitud.route?.path || 'sin-ruta',
     codigo: error.code || error.name || 'desconocido',
   }));
-  if (res.headersSent) return next(error);
+  if (respuesta.headersSent) return siguiente(error);
 
   // Un corte de red o una consulta cancelada se informa como reintento, no como fallo definitivo.
   if (esErrorTransitorio(error) || error.code === '57014') {
-    res.set('Retry-After', '5');
-    return res.status(503).render('error', { mensaje: 'La conexion tardo demasiado. Intenta nuevamente.' });
+    respuesta.set('Retry-After', '5');
+    return respuesta.status(503).render('error', { mensaje: 'La conexion tardo demasiado. Intenta nuevamente.' });
   }
-  return res.status(500).render('error', { mensaje: 'Ocurrio un error. Intenta nuevamente.' });
+  return respuesta.status(500).render('error', { mensaje: 'Ocurrio un error. Intenta nuevamente.' });
 });
 
-const servidor = app.listen(config.port, config.host, () => {
+const servidor = servidorWeb.listen(configuracion.puerto, configuracion.anfitrion, () => {
   console.log(
-    `Asistencia Escolar Inteligente disponible en http://${config.host}:${config.port}`
-    + ` | entorno=${config.nodeEnv} | proxy=${config.trustProxy}`,
+    `Asistencia Escolar Inteligente disponible en http://${configuracion.anfitrion}:${configuracion.puerto}`
+    + ` | entorno=${configuracion.entornoNode} | proxy=${configuracion.confiarEnProxy}`,
   );
 });
 
 // Cerrar conexiones al detener el proceso para evitar sesiones a medio guardar.
 async function cerrarServidor() {
   servidor.close();
-  sessionStore.close();
-  await pool.end();
+  almacenSesiones.close();
+  await grupoConexiones.end();
 }
 
 process.on('SIGINT', cerrarServidor);
