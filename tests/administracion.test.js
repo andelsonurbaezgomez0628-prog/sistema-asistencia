@@ -48,7 +48,7 @@ prueba('el perfil solo modifica datos de la cuenta autenticada y protege el camb
   const fin = fuente.indexOf("enrutador.post('/cuenta/clave'", inicio);
   const ruta = fuente.slice(inicio, fin);
   afirmar.match(ruta, /enrutador\.post\('\/cuenta\/perfil', requerirLogin, protegerCsrf/);
-  afirmar.match(ruta, /bcrypt\.compare\(claveActual, filas\[0\]\.password_hash\)/);
+  afirmar.match(ruta, /cifrador\.compare\(claveActual, filas\[0\]\.password_hash\)/);
   afirmar.match(ruta, /WHERE id = \$4 AND activo IS TRUE/);
   afirmar.match(ruta, /\[nombre, cedula, usuario, solicitud\.user\.id\]/);
   afirmar.doesNotMatch(ruta, /solicitud\.body\.(?:id|rol|activo)/);
