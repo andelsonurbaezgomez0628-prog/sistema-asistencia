@@ -1,8 +1,8 @@
 # ==============================================================
 # .github/workflows/pruebas.yml
 # --------------------------------------------------------------
-# Prueba automatica de GitHub: cada vez que subimos codigo (push) o se
-# abre un Pull Request, GitHub instala Node y ejecuta las comprobaciones del proyecto:
+# Pruebas y ejecutables: cada cambio revisa el codigo y compila APK debug
+# de los dos servidores para descargarlos como artefactos desde la ejecucion.
 #
 #   1) Revisar sintaxis JavaScript y plantillas
 #   2) Ejecutar pruebas del algoritmo y del parser SQL
@@ -11,11 +11,11 @@
 # entera antes de la demostracion. Cuesta cero y se ve profesional ante
 # el jurado: "el codigo se prueba solo en cada cambio".
 #
-# Nota: la prueba unitaria no requiere MySQL; las comprobaciones de
-# permisos contra datos reales quedan en la guia de validacion manual.
+# La compilacion debug no usa claves privadas de firma. Las versiones de
+# produccion requieren las claves privadas protegidas del proyecto.
 # ==============================================================
 
-name: Pruebas automaticas
+name: Pruebas y ejecutables Android
 
 on:
   push:
@@ -35,10 +35,10 @@ jobs:
     steps:
       # 1) Descargar el codigo del repositorio
       - name: Bajar el codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Instalar Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -51,3 +51,40 @@ jobs:
 
       - name: Ejecutar pruebas
         run: npm test
+
+  compilar-apk:
+    name: Compilar APK para Render y Hostless
+    needs: revisar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Bajar el codigo
+        uses: actions/checkout@v7
+
+      - name: Instalar Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Instalar SDK Android 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compilar APK debug
+        working-directory: android
+        run: bash ./gradlew --no-daemon assembleRenderDebug assembleHostlessDebug
+
+      - name: Publicar APK descargables
+        uses: actions/upload-artifact@v7
+        with:
+          name: apk-android-debug
+          path: |
+            android/app/build/outputs/apk/render/debug/app-render-debug.apk
+            android/app/build/outputs/apk/hostless/debug/app-hostless-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
