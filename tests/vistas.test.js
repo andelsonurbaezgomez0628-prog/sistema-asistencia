@@ -1,8 +1,8 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import ejs from 'ejs';
+import prueba from 'node:test';
+import afirmar from 'node:assert/strict';
+import { readFile as leerArchivo } from 'node:fs/promises';
+import { fileURLToPath as convertirUrlArchivoARuta } from 'node:url';
+import plantillasEjs from 'ejs';
 
 const vistas = [
   'views/login.ejs',
@@ -19,78 +19,78 @@ const vistas = [
 ];
 
 for (const ruta of vistas) {
-  test(`la vista ${ruta} compila`, async () => {
-    const plantilla = await readFile(new URL(`../${ruta}`, import.meta.url), 'utf8');
-    assert.doesNotThrow(() => ejs.compile(plantilla, { filename: ruta }));
+  prueba(`la vista ${ruta} compila`, async () => {
+    const plantilla = await leerArchivo(new URL(`../${ruta}`, import.meta.url), 'utf8');
+    afirmar.doesNotThrow(() => plantillasEjs.compile(plantilla, { filename: ruta }));
   });
 }
 
-test('asistencia nombra los campos con el id sin corchetes numericos', async () => {
+prueba('asistencia nombra los campos con el id sin corchetes numericos', async () => {
   // Express convierte estado[7] en un arreglo y pierde el id del estudiante.
-  const plantilla = await readFile(new URL('../views/asistencia.ejs', import.meta.url), 'utf8');
-  assert.match(plantilla, /name="estado_<%= estudiante\.id %>"/);
-  assert.match(plantilla, /name="observacion_<%= estudiante\.id %>"/);
-  assert.doesNotMatch(plantilla, /name="estado\[/);
-  assert.doesNotMatch(plantilla, /name="observacion\[/);
+  const plantilla = await leerArchivo(new URL('../views/asistencia.ejs', import.meta.url), 'utf8');
+  afirmar.match(plantilla, /name="estado_<%= estudiante\.id %>"/);
+  afirmar.match(plantilla, /name="observacion_<%= estudiante\.id %>"/);
+  afirmar.doesNotMatch(plantilla, /name="estado\[/);
+  afirmar.doesNotMatch(plantilla, /name="observacion\[/);
 });
 
-test('reportes incluye barra de porcentaje y graficos de pastel y barras', async () => {
+prueba('reportes incluye barra de porcentaje y graficos de pastel y barras', async () => {
   // La barra de avance y los graficos evitan estilos en linea para respetar la CSP.
-  const plantilla = await readFile(new URL('../views/reportes.ejs', import.meta.url), 'utf8');
-  assert.match(plantilla, /class="barra-asistencia" max="100" value="<%= porcentaje %>"/);
-  assert.match(plantilla, /class="grafico-dona"/);
-  assert.match(plantilla, /class="grafico-barras"/);
-  assert.doesNotMatch(plantilla, /style="/);
-  assert.match(plantilla, /data-exportacion-general/);
-  assert.match(plantilla, /data-fila-exportacion/);
-  assert.match(plantilla, /data-exportar="excel">Excel/);
+  const plantilla = await leerArchivo(new URL('../views/reportes.ejs', import.meta.url), 'utf8');
+  afirmar.match(plantilla, /class="barra-asistencia" max="100" value="<%= porcentaje %>"/);
+  afirmar.match(plantilla, /class="grafico-dona"/);
+  afirmar.match(plantilla, /class="grafico-barras"/);
+  afirmar.doesNotMatch(plantilla, /style="/);
+  afirmar.match(plantilla, /data-exportacion-general/);
+  afirmar.match(plantilla, /data-fila-exportacion/);
+  afirmar.match(plantilla, /data-exportar="excel">Excel/);
 });
 
-test('detalle de estudiante renderiza historial y datos de navegacion', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/reporte-estudiante.ejs', import.meta.url)), {
+prueba('detalle de estudiante renderiza historial y datos de navegacion', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/reporte-estudiante.ejs', import.meta.url)), {
     estudiante: { nombre: 'Estudiante', apellido: 'Demo', numero_lista: 1, curso: 'Curso', seccion: 'A' },
     historial: [{ fecha: '2026-11-01', estado: 'presente', observacion: null }],
     desde: '2026-10-01', hasta: '2026-11-02', hoy: '2026-11-02',
     usuario: { id: 1, nombre: 'Docente', rol: 'docente' }, rutaActual: '/reportes/estudiantes/1', csrfToken: 'token-demo', flash: null,
   });
-  assert.match(html, /Historial de asistencia/);
-  assert.match(html, /Presente/);
-  assert.match(html, /Volver a reportes/);
-  assert.match(html, /Exportar PDF/);
-  assert.match(html, /Exportar Excel/);
-  assert.match(html, /Exportar Word/);
+  afirmar.match(html, /Historial de asistencia/);
+  afirmar.match(html, /Presente/);
+  afirmar.match(html, /Volver a reportes/);
+  afirmar.match(html, /Exportar PDF/);
+  afirmar.match(html, /Exportar Excel/);
+  afirmar.match(html, /Exportar Word/);
 });
 
-test('las rutas de reportes usan el alias en minusculas que devuelve PostgreSQL', async () => {
+prueba('las rutas de reportes usan el alias en minusculas que devuelve PostgreSQL', async () => {
   // PostgreSQL dobla los nombres sin comillas: "inicioDefecto" llegaba como undefined
   // y dejaba el rango de reportes vacio o rompia el detalle del estudiante.
-  const rutas = await readFile(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
-  assert.match(rutas, /AS inicio_defecto/);
-  assert.doesNotMatch(rutas, /AS inicioDefecto/);
+  const rutas = await leerArchivo(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
+  afirmar.match(rutas, /AS inicio_defecto/);
+  afirmar.doesNotMatch(rutas, /AS inicioDefecto/);
 });
 
-test('el detalle del estudiante no falla si una fecha llega vacia', async () => {
+prueba('el detalle del estudiante no falla si una fecha llega vacia', async () => {
   // Una fecha invalida antes lanzaba RangeError y devolvia la pagina de error 500.
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/reporte-estudiante.ejs', import.meta.url)), {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/reporte-estudiante.ejs', import.meta.url)), {
     estudiante: { nombre: 'Estudiante', apellido: 'Demo', numero_lista: 1, curso: 'Curso', seccion: 'A' },
     historial: [{ fecha: 'sin-fecha', estado: 'presente', observacion: null }],
     desde: undefined, hasta: undefined, hoy: undefined,
     usuario: { id: 1, nombre: 'Docente', rol: 'docente' }, rutaActual: '/reportes/estudiantes/1', csrfToken: 'token-demo', flash: null,
   });
-  assert.match(html, /Historial de asistencia/);
-  assert.match(html, /Volver a reportes/);
+  afirmar.match(html, /Historial de asistencia/);
+  afirmar.match(html, /Volver a reportes/);
 });
 
-test('la alerta recibe las fechas de ausencia como texto y no como Date', async () => {
+prueba('la alerta recibe las fechas de ausencia como texto y no como Date', async () => {
   // ARRAY_AGG(fecha) devuelve objetos Date, pero la regla de rachas espera YYYY-MM-DD;
   // al guardar la lista con ausencias lanzaba TypeError y se perdia el guardado.
-  const rutas = await readFile(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
-  assert.match(rutas, /ARRAY_AGG\(fecha::text ORDER BY fecha\)/);
-  assert.doesNotMatch(rutas, /ARRAY_AGG\(fecha ORDER BY fecha\)/);
+  const rutas = await leerArchivo(new URL('../src/routes/seguimiento.js', import.meta.url), 'utf8');
+  afirmar.match(rutas, /ARRAY_AGG\(fecha::text ORDER BY fecha\)/);
+  afirmar.doesNotMatch(rutas, /ARRAY_AGG\(fecha ORDER BY fecha\)/);
 });
 
-test('gestion renderiza la pestana para crear administradores', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/gestion.ejs', import.meta.url)), {
+prueba('gestion renderiza la pestana para crear administradores', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/gestion.ejs', import.meta.url)), {
     cursos: [],
     secciones: [],
     estudiantes: [],
@@ -101,13 +101,13 @@ test('gestion renderiza la pestana para crear administradores', async () => {
     usuario: { id: 1, nombre: 'Ana', rol: 'admin' },
     rutaActual: '/gestion',
   });
-  assert.match(html, /id="panel-administradores"/);
-  assert.match(html, /action="\/gestion\/administradores"/);
-  assert.match(html, /Crear administrador/);
+  afirmar.match(html, /id="panel-administradores"/);
+  afirmar.match(html, /action="\/gestion\/administradores"/);
+  afirmar.match(html, /Crear administrador/);
 });
 
-test('editar seccion muestra varios docentes y marca los que ya estan asignados', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/editar.ejs', import.meta.url)), {
+prueba('editar seccion muestra varios docentes y marca los que ya estan asignados', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/editar.ejs', import.meta.url)), {
     tipo: 'seccion',
     registro: { id: 4, nombre: 'A', anio_escolar: '2026-2027', curso_id: 2 },
     cursos: [{ id: 2, nombre: 'Quinto' }],
@@ -122,12 +122,12 @@ test('editar seccion muestra varios docentes y marca los que ya estan asignados'
     usuario: { id: 1, nombre: 'Admin', rol: 'admin' },
     rutaActual: '/gestion/editar/seccion/4',
   });
-  assert.equal((html.match(/name="docente_ids"/g) || []).length, 2);
-  assert.equal((html.match(/checked/g) || []).length, 2);
+  afirmar.equal((html.match(/name="docente_ids"/g) || []).length, 2);
+  afirmar.equal((html.match(/checked/g) || []).length, 2);
 });
 
-test('asistencia ofrece marcar presentes a toda la lista', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/asistencia.ejs', import.meta.url)), {
+prueba('asistencia ofrece marcar presentes a toda la lista', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/asistencia.ejs', import.meta.url)), {
     secciones: [{ id: 3, nombre: 'A', curso: 'Quinto' }],
     estudiantes: [{ id: 9, nombre: 'Eva', apellido: 'Prueba', numero_lista: 1, estado: null, observacion: null }],
     idSeccion: 3,
@@ -138,47 +138,47 @@ test('asistencia ofrece marcar presentes a toda la lista', async () => {
     usuario: { id: 2, nombre: 'Docente', rol: 'docente' },
     rutaActual: '/asistencia',
   });
-  const script = await readFile(new URL('../assets/js/asistencia.js', import.meta.url), 'utf8');
-  const estilos = await readFile(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
-  assert.match(html, /data-marcar-todos-presentes/);
-  assert.match(html, /data-estado-asistencia/);
-  assert.match(html, /data-aviso-marcar-presentes/);
-  assert.match(html, /data-conteo-estado="presente"/);
-  assert.match(html, /Lista N°/);
-  assert.match(script, /Se marcaron/);
-  assert.match(script, /Desmarcar todos/);
-  assert.match(script, /todaLaListaEstaPresente/);
-  assert.match(script, /estado-\$\{estado\}/);
-  assert.match(script, /function actualizarContadores\(\)/);
-  assert.match(script, /actualizarContadores\(\);/);
-  assert.match(html, /aria-pressed="false"/);
-  assert.match(html, /data-texto-masivo/);
-  assert.match(estilos, /\.asistencia-boton-masivo\[aria-pressed="true"\]/);
-  assert.match(estilos, /\.estado-selector\.estado-presente \{ border-color: #A7F3D0; background: var\(--asist-verde-claro\);/);
-  assert.match(estilos, /\.estado-selector\.estado-ausente \{ border-color: #FECACA; background: var\(--asist-rojo-claro\);/);
-  assert.match(estilos, /\.estado-selector\.estado-justificado \{ border-color: #BFDBFE; background: var\(--asist-azul-claro\);/);
-  assert.match(estilos, /\.estado-selector\.estado-tardanza \{ border-color: #FDE68A; background: var\(--asist-naranja-claro\);/);
-  assert.match(html, /src="\/js\/asistencia\.js"/);
+  const script = await leerArchivo(new URL('../assets/js/asistencia.js', import.meta.url), 'utf8');
+  const estilos = await leerArchivo(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
+  afirmar.match(html, /data-marcar-todos-presentes/);
+  afirmar.match(html, /data-estado-asistencia/);
+  afirmar.match(html, /data-aviso-marcar-presentes/);
+  afirmar.match(html, /data-conteo-estado="presente"/);
+  afirmar.match(html, /Lista N°/);
+  afirmar.match(script, /Se marcaron/);
+  afirmar.match(script, /Desmarcar todos/);
+  afirmar.match(script, /todaLaListaEstaPresente/);
+  afirmar.match(script, /estado-\$\{estado\}/);
+  afirmar.match(script, /function actualizarContadores\(\)/);
+  afirmar.match(script, /actualizarContadores\(\);/);
+  afirmar.match(html, /aria-pressed="false"/);
+  afirmar.match(html, /data-texto-masivo/);
+  afirmar.match(estilos, /\.asistencia-boton-masivo\[aria-pressed="true"\]/);
+  afirmar.match(estilos, /\.estado-selector\.estado-presente \{ border-color: #A7F3D0; background: var\(--asist-verde-claro\);/);
+  afirmar.match(estilos, /\.estado-selector\.estado-ausente \{ border-color: #FECACA; background: var\(--asist-rojo-claro\);/);
+  afirmar.match(estilos, /\.estado-selector\.estado-justificado \{ border-color: #BFDBFE; background: var\(--asist-azul-claro\);/);
+  afirmar.match(estilos, /\.estado-selector\.estado-tardanza \{ border-color: #FDE68A; background: var\(--asist-naranja-claro\);/);
+  afirmar.match(html, /src="\/js\/asistencia\.js"/);
 });
 
-test('el PDF imprime un informe propio y no la pagina de pantalla', async () => {
-  const reportes = await readFile(new URL('../views/reportes.ejs', import.meta.url), 'utf8');
-  const estudiante = await readFile(new URL('../views/reporte-estudiante.ejs', import.meta.url), 'utf8');
-  const estilos = await readFile(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
-  const script = await readFile(new URL('../assets/js/reportes.js', import.meta.url), 'utf8');
+prueba('el PDF imprime un informe propio y no la pagina de pantalla', async () => {
+  const reportes = await leerArchivo(new URL('../views/reportes.ejs', import.meta.url), 'utf8');
+  const estudiante = await leerArchivo(new URL('../views/reporte-estudiante.ejs', import.meta.url), 'utf8');
+  const estilos = await leerArchivo(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
+  const script = await leerArchivo(new URL('../assets/js/reportes.js', import.meta.url), 'utf8');
 
-  assert.match(reportes, /class="pdf-reporte"/);
-  assert.match(estudiante, /class="pdf-reporte"/);
-  assert.doesNotMatch(reportes, /style="/);
+  afirmar.match(reportes, /class="pdf-reporte"/);
+  afirmar.match(estudiante, /class="pdf-reporte"/);
+  afirmar.doesNotMatch(reportes, /style="/);
   // Al imprimir solo queda visible el informe; el resto de la pagina se oculta.
-  assert.match(estilos, /body > \*:not\(\.pdf-reporte\) \{ display: none !important; \}/);
-  assert.match(estilos, /\.pdf-reporte \{ display: block !important; \}/);
-  assert.match(estilos, /\.pdf-tabla thead \{ display: table-header-group; \}/);
-  assert.match(script, /imprimirComoPdf/);
+  afirmar.match(estilos, /body > \*:not\(\.pdf-reporte\) \{ display: none !important; \}/);
+  afirmar.match(estilos, /\.pdf-reporte \{ display: block !important; \}/);
+  afirmar.match(estilos, /\.pdf-tabla thead \{ display: table-header-group; \}/);
+  afirmar.match(script, /imprimirComoPdf/);
 });
 
-test('reportes renderiza el informe PDF con los totales del rango', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/reportes.ejs', import.meta.url)), {
+prueba('reportes renderiza el informe PDF con los totales del rango', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/reportes.ejs', import.meta.url)), {
     desde: '2026-10-01', hasta: '2026-11-02', hoy: '2026-11-02',
     filas: [{
       id: 9, nombre: 'Eva', apellido: 'Prueba', numero_lista: 1, curso: 'Quinto', seccion: 'A',
@@ -196,42 +196,42 @@ test('reportes renderiza el informe PDF con los totales del rango', async () => 
     rutaActual: '/reportes', csrfToken: 'token-demo', flash: null,
   });
 
-  assert.match(html, /class="pdf-reporte"/);
-  assert.match(html, /Prueba, Eva/);
-  assert.match(html, /pdf-resumen-item pdf-verde/);
-  assert.match(html, /Reporte de asistencia/);
+  afirmar.match(html, /class="pdf-reporte"/);
+  afirmar.match(html, /Prueba, Eva/);
+  afirmar.match(html, /pdf-resumen-item pdf-verde/);
+  afirmar.match(html, /Reporte de asistencia/);
 });
 
-test('las paginas incluyen barra de carga y bloqueo del doble envio del login', async () => {
-  const head = await readFile(new URL('../views/partials/head.ejs', import.meta.url), 'utf8');
-  const login = await readFile(new URL('../views/login.ejs', import.meta.url), 'utf8');
-  const carga = await readFile(new URL('../assets/js/carga.js', import.meta.url), 'utf8');
-  const scriptLogin = await readFile(new URL('../assets/js/login.js', import.meta.url), 'utf8');
-  const estilos = await readFile(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
+prueba('las paginas incluyen barra de carga y bloqueo del doble envio del login', async () => {
+  const head = await leerArchivo(new URL('../views/partials/head.ejs', import.meta.url), 'utf8');
+  const login = await leerArchivo(new URL('../views/login.ejs', import.meta.url), 'utf8');
+  const carga = await leerArchivo(new URL('../assets/js/carga.js', import.meta.url), 'utf8');
+  const scriptLogin = await leerArchivo(new URL('../assets/js/login.js', import.meta.url), 'utf8');
+  const estilos = await leerArchivo(new URL('../assets/css/estilos.css', import.meta.url), 'utf8');
 
-  assert.match(head, /src="\/js\/carga\.js"/);
-  assert.match(carga, /barra-carga-pagina/);
-  assert.match(login, /data-boton-login/);
-  assert.match(login, /data-texto-login/);
-  assert.match(login, /src="\/js\/login\.js"/);
-  assert.match(scriptLogin, /evento\.preventDefault\(\)/);
-  assert.match(estilos, /\.barra-carga-pagina/);
+  afirmar.match(head, /src="\/js\/carga\.js"/);
+  afirmar.match(carga, /barra-carga-pagina/);
+  afirmar.match(login, /data-boton-login/);
+  afirmar.match(login, /data-texto-login/);
+  afirmar.match(login, /src="\/js\/login\.js"/);
+  afirmar.match(scriptLogin, /evento\.preventDefault\(\)/);
+  afirmar.match(estilos, /\.barra-carga-pagina/);
 });
 
-test('la barra superior muestra el rol del usuario', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/partials/nav.ejs', import.meta.url)), {
+prueba('la barra superior muestra el rol del usuario', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/partials/nav.ejs', import.meta.url)), {
     usuario: { id: 2, nombre: 'Docente', rol: 'docente' },
     rutaActual: '/asistencia',
     csrfToken: 'token-demo',
   });
-  assert.match(html, /navbar-user-role/);
-  assert.match(html, />Docente<\/span>/);
-  assert.match(html, /class="navbar-user navbar-user-link[^\"]*" href="\/cuenta"/);
-  assert.doesNotMatch(html, /class="nav-item-icon[^\"]*" href="\/cuenta"/);
+  afirmar.match(html, /navbar-user-role/);
+  afirmar.match(html, />Docente<\/span>/);
+  afirmar.match(html, /class="navbar-user navbar-user-link[^\"]*" href="\/cuenta"/);
+  afirmar.doesNotMatch(html, /class="nav-item-icon[^\"]*" href="\/cuenta"/);
 });
 
-test('cuenta permite editar datos personales y presenta el resumen de la cuenta actual', async () => {
-  const html = await ejs.renderFile(fileURLToPath(new URL('../views/cuenta.ejs', import.meta.url)), {
+prueba('cuenta permite editar datos personales y presenta el resumen de la cuenta actual', async () => {
+  const html = await plantillasEjs.renderFile(convertirUrlArchivoARuta(new URL('../views/cuenta.ejs', import.meta.url)), {
     error: null,
     flash: null,
     csrfToken: 'token-demo',
@@ -240,13 +240,13 @@ test('cuenta permite editar datos personales y presenta el resumen de la cuenta 
     usuario: { id: 8, nombre: 'María Prueba', rol: 'docente' },
     rutaActual: '/cuenta',
   });
-  assert.match(html, /action="\/cuenta\/perfil"/);
-  assert.match(html, /name="nombre"/);
-  assert.match(html, /name="cedula"/);
-  assert.match(html, /name="usuario"/);
-  assert.match(html, /name="clave_actual_perfil"/);
-  assert.match(html, /Cuenta actual/);
-  assert.match(html, /maria\.prueba/);
-  assert.match(html, /Administrador|Docente/);
-  assert.match(html, /action="\/cuenta\/clave"/);
+  afirmar.match(html, /action="\/cuenta\/perfil"/);
+  afirmar.match(html, /name="nombre"/);
+  afirmar.match(html, /name="cedula"/);
+  afirmar.match(html, /name="usuario"/);
+  afirmar.match(html, /name="clave_actual_perfil"/);
+  afirmar.match(html, /Cuenta actual/);
+  afirmar.match(html, /maria\.prueba/);
+  afirmar.match(html, /Administrador|Docente/);
+  afirmar.match(html, /action="\/cuenta\/clave"/);
 });

@@ -20,7 +20,7 @@
     <% } %>
 
     <%
-      const totalActivos = (lista) => lista.filter((item) => item.activo).length;
+      const totalActivos = (lista) => lista.filter((elemento) => elemento.activo).length;
       const pestanas = [
         { clave: 'cursos', etiqueta: 'Cursos', icono: 'curso', total: cursos.length },
         { clave: 'secciones', etiqueta: 'Secciones', icono: 'seccion', total: secciones.length },
@@ -153,7 +153,7 @@
                   <summary class="gestion-docentes-disparador"><span data-docentes-resumen>Seleccionar docentes</span></summary>
                   <div class="gestion-docentes-menu">
                     <div class="gestion-docentes-seleccion">
-                      <% for (const docente of docentes.filter((item) => item.activo)) { %>
+                      <% for (const docente of docentes.filter((elemento) => elemento.activo)) { %>
                         <label class="form-check gestion-docente-opcion">
                           <input class="form-check-input" type="checkbox" name="docente_ids" value="<%= docente.id %>">
                           <span class="form-check-label"><%= docente.nombre %></span>

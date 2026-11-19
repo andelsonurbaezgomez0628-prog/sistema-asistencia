@@ -1,4 +1,4 @@
-import pg from 'pg';
+import postgresql from 'pg';
 import { configuracion } from './config.js';
 import { esErrorTransitorio, esperarReintento } from './errores.js';
 
@@ -7,12 +7,12 @@ import { esErrorTransitorio, esperarReintento } from './errores.js';
  * Las rutas usan consulta para obtener filas y db/pool cuando necesitan
  * controlar una transaccion con BEGIN, COMMIT y ROLLBACK.
  */
-const { Pool, types } = pg;
+const { Pool: GrupoConexiones, types: tiposPostgres } = postgresql;
 // PostgreSQL debe entregar DATE como texto para evitar conversiones de zona horaria en Node.
-types.setTypeParser(1082, (fecha) => fecha);
+tiposPostgres.setTypeParser(1082, (fecha) => fecha);
 
 // El pool reutiliza conexiones; TLS comprueba el certificado de PostgreSQL.
-export const grupoConexiones = new Pool({
+export const grupoConexiones = new GrupoConexiones({
   connectionString: configuracion.urlBaseDatos,
   ssl: { rejectUnauthorized: true },
   max: 10,

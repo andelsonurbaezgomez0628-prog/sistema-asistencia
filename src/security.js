@@ -1,9 +1,12 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  randomBytes as generarBytesAleatorios,
+  timingSafeEqual as compararEnTiempoConstante,
+} from 'node:crypto';
 
 /* Proteccion CSRF: cada formulario mutador debe devolver el token de su sesion. */
 export function crearTokenCsrf() {
   // 32 bytes aleatorios se representan como 64 caracteres hexadecimales.
-  return randomBytes(32).toString('hex');
+  return generarBytesAleatorios(32).toString('hex');
 }
 
 /*
@@ -23,7 +26,7 @@ export function estadoTokenCsrf(solicitud) {
   const tokenDeSesionBuffer = Buffer.from(tokenDeSesion);
   const tienenIgualLongitud = tokenEnviadoBuffer.length === tokenDeSesionBuffer.length;
   const sonIguales = tienenIgualLongitud
-    && timingSafeEqual(tokenEnviadoBuffer, tokenDeSesionBuffer);
+    && compararEnTiempoConstante(tokenEnviadoBuffer, tokenDeSesionBuffer);
   return sonIguales ? 'valido' : 'invalido';
 }
 

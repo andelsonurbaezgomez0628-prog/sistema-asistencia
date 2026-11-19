@@ -1,17 +1,17 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig as ConfiguracionCapacitor } from '@capacitor/cli';
 import 'dotenv/config';
-import process from 'node:process';
+import process as proceso from 'node:process';
 
-const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://sistema-asistencia-2os4.onrender.com';
+const urlServidor = proceso.env.CAPACITOR_SERVER_URL || 'https://sistema-asistencia-2os4.onrender.com';
 
-const config: CapacitorConfig = {
+const configuracion: ConfiguracionCapacitor = {
   appId: 'com.sistema.asistencia',
   appName: 'Sistema Asistencia',
   webDir: 'www',
   server: {
-    url: serverUrl,
+    url: urlServidor,
     cleartext: false,
   },
 };
 
-export default config;
+export default configuracion;

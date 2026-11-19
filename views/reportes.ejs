@@ -94,12 +94,12 @@
             <p class="text-secondary mb-0">No hay registros para esos filtros.</p>
           <% } else { %>
             <ul class="grafico-barras">
-              <% for (const item of resumenCursos) { %>
+              <% for (const elemento of resumenCursos) { %>
                 <li class="grafico-barra">
-                  <span class="grafico-barra-nombre" title="<%= item.curso %>"><%= item.curso %></span>
-                  <progress class="barra-asistencia" max="100" value="<%= item.porcentaje %>" aria-label="Asistencia de <%= item.curso %>: <%= item.porcentaje %>%"><%= item.porcentaje %>%</progress>
-                  <span class="grafico-barra-valor"><%= item.porcentaje %>%</span>
-                  <span class="grafico-barra-detalle"><%= item.asistencias %> de <%= item.dias %> día(s)</span>
+                  <span class="grafico-barra-nombre" title="<%= elemento.curso %>"><%= elemento.curso %></span>
+                  <progress class="barra-asistencia" max="100" value="<%= elemento.porcentaje %>" aria-label="Asistencia de <%= elemento.curso %>: <%= elemento.porcentaje %>%"><%= elemento.porcentaje %>%</progress>
+                  <span class="grafico-barra-valor"><%= elemento.porcentaje %>%</span>
+                  <span class="grafico-barra-detalle"><%= elemento.asistencias %> de <%= elemento.dias %> día(s)</span>
                 </li>
               <% } %>
             </ul>

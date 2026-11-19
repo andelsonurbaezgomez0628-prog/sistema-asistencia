@@ -1,10 +1,10 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import bcrypt from 'bcryptjs';
-import express from 'express';
-import session from 'express-session';
-import { rateLimit } from 'express-rate-limit';
-import helmet from 'helmet';
+import rutasSistema from 'node:path';
+import { fileURLToPath as convertirUrlArchivoARuta } from 'node:url';
+import cifrador from 'bcryptjs';
+import servidorExpress from 'express';
+import sesionesHttp from 'express-session';
+import { rateLimit as limitarSolicitudes } from 'express-rate-limit';
+import blindarCabeceras from 'helmet';
 import { grupoConexiones, consulta } from './db.js';
 import { configuracion } from './config.js';
 import { esErrorTransitorio } from './errores.js';
@@ -19,22 +19,22 @@ import {
   requerirLogin,
 } from './security.js';
 
-const archivoActual = fileURLToPath(import.meta.url);
-const carpetaActual = path.dirname(archivoActual);
-const carpetaProyecto = path.resolver(carpetaActual, '..');
-const servidorWeb = express();
+const archivoActual = convertirUrlArchivoARuta(import.meta.url);
+const carpetaActual = rutasSistema.dirname(archivoActual);
+const carpetaProyecto = rutasSistema.resolve(carpetaActual, '..');
+const servidorWeb = servidorExpress();
 const almacenSesiones = new PostgresSessionStore(grupoConexiones);
 
 /* Vistas y cabeceras de seguridad */
 servidorWeb.set('view engine', 'ejs');
-servidorWeb.set('views', path.join(carpetaProyecto, 'views'));
+servidorWeb.set('views', rutasSistema.join(carpetaProyecto, 'views'));
 servidorWeb.disable('x-powered-by');
 
 // 1. Preparar protecciones HTTP y archivos estaticos.
 // Render entrega el trafico mediante un proxy HTTPS: confiar en un salto
 // permite cookies Secure y que el rate limit lea la IP real del cliente.
 if (configuracion.confiarEnProxy) servidorWeb.set('trust proxy', 1);
-servidorWeb.use(helmet({
+servidorWeb.use(blindarCabeceras({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -63,16 +63,16 @@ servidorWeb.get('/.well-known/assetlinks.json', (solicitud, respuesta) => {
   }]);
 });
 
-servidorWeb.use(express.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
-servidorWeb.use(express.json({ limit: '260kb', type: 'application/json' }));
-servidorWeb.use(express.static(path.join(carpetaProyecto, 'assets'), {
+servidorWeb.use(servidorExpress.urlencoded({ extended: true, limit: '50kb', parameterLimit: 1000 }));
+servidorWeb.use(servidorExpress.json({ limit: '260kb', type: 'application/json' }));
+servidorWeb.use(servidorExpress.static(rutasSistema.join(carpetaProyecto, 'assets'), {
   index: false,
   dotfiles: 'deny',
   // CSS y JavaScript pequenos se reutilizan; una cache corta acelera la navegacion.
   maxAge: '5m',
 }));
 // El store PostgreSQL se configura antes de las rutas para que cada solicitud tenga sesion persistida.
-servidorWeb.use(session({
+servidorWeb.use(sesionesHttp({
   name: 'asistencia.sid',
   secret: configuracion.secretoSesion,
   store: almacenSesiones,
@@ -106,7 +106,7 @@ servidorWeb.use((solicitud, respuesta, siguiente) => {
   siguiente();
 });
 
-const limiteLogin = rateLimit({
+const limiteLogin = limitarSolicitudes({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: 'draft-8',
@@ -168,7 +168,7 @@ servidorWeb.post('/login', limiteLogin, validarCsrfLogin, async (solicitud, resp
     );
     const cuenta = cuentas[0];
     // La misma respuesta evita revelar si fallo el usuario o la contrasena.
-    const contrasenaValida = cuenta ? await bcrypt.compare(clave, cuenta.password_hash) : false;
+    const contrasenaValida = cuenta ? await cifrador.compare(clave, cuenta.password_hash) : false;
 
     if (!contrasenaValida) {
       return respuesta.status(401).render('login', { error: 'Usuario o contrasena incorrectos.' });

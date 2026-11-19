@@ -1,10 +1,10 @@
-import { Router } from 'express';
-import bcrypt from 'bcryptjs';
+import { Router as crearEnrutador } from 'express';
+import cifrador from 'bcryptjs';
 import { baseDatos, consulta } from '../db.js';
 import { calcula_racha_maxima, clasificar_riesgo } from '../alertas.js';
 import { crearTokenCsrf, protegerCsrf, requerirLogin, validarId } from '../security.js';
 
-const router = Router();
+const enrutador = crearEnrutador();
 const estadosPermitidos = new Set(['presente', 'tardanza', 'ausente', 'justificado']);
 const nivelesPermitidos = new Set(['bajo', 'medio', 'alto']);
 const estadosAlertaPermitidos = new Set(['pendiente', 'atendida']);
@@ -27,7 +27,7 @@ function decodificarFoto(urlDatos) {
   return { datos, tipo: coincidencia[1] };
 }
 
-router.get('/fotos/estudiantes/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/fotos/estudiantes/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.sendStatus(404);
   try {
@@ -44,7 +44,7 @@ router.get('/fotos/estudiantes/:id', requerirLogin, async (solicitud, respuesta,
   } catch (error) { return siguiente(error); }
 });
 
-router.get('/fotos/usuarios/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/fotos/usuarios/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id || (solicitud.user.rol !== 'admin' && Number(solicitud.user.id) !== id)) return respuesta.sendStatus(404);
   try {
@@ -55,7 +55,7 @@ router.get('/fotos/usuarios/:id', requerirLogin, async (solicitud, respuesta, si
   } catch (error) { return siguiente(error); }
 });
 
-router.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/fotos/:tipo/:id', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   const { tipo } = solicitud.params;
   const foto = decodificarFoto(solicitud.body?.foto);
@@ -99,7 +99,7 @@ async function mostrarCuenta(respuesta, id, error = null, valoresPerfil = null) 
   return respuesta.status(error ? 400 : 200).render('cuenta', { error, cuentaActual, valoresPerfil });
 }
 
-router.get('/cuenta', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/cuenta', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     return await mostrarCuenta(respuesta, solicitud.user.id);
   } catch (error) {
@@ -107,7 +107,7 @@ router.get('/cuenta', requerirLogin, async (solicitud, respuesta, siguiente) => 
   }
 });
 
-router.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
   const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
   const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
@@ -124,7 +124,7 @@ router.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (solicitud, res
       'SELECT password_hash FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
       [solicitud.user.id],
     );
-    if (!filas[0] || !(await bcrypt.compare(claveActual, filas[0].password_hash))) {
+    if (!filas[0] || !(await cifrador.compare(claveActual, filas[0].password_hash))) {
       return await mostrarCuenta(respuesta, solicitud.user.id, 'La contraseña actual no es correcta.', valoresPerfil);
     }
 
@@ -143,7 +143,7 @@ router.post('/cuenta/perfil', requerirLogin, protegerCsrf, async (solicitud, res
   }
 });
 
-router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/cuenta/clave', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const claveActual = typeof solicitud.body.clave_actual === 'string' ? solicitud.body.clave_actual : '';
   const claveNueva = typeof solicitud.body.clave_nueva === 'string' ? solicitud.body.clave_nueva : '';
   const confirmarClave = typeof solicitud.body.confirmar_clave === 'string' ? solicitud.body.confirmar_clave : '';
@@ -156,11 +156,11 @@ router.post('/cuenta/clave', requerirLogin, protegerCsrf, async (solicitud, resp
       'SELECT password_hash FROM usuarios WHERE id = $1 AND activo IS TRUE LIMIT 1',
       [solicitud.user.id],
     );
-    if (!filas[0] || !(await bcrypt.compare(claveActual, filas[0].password_hash))) {
+    if (!filas[0] || !(await cifrador.compare(claveActual, filas[0].password_hash))) {
       return await mostrarCuenta(respuesta, solicitud.user.id, 'La contraseña actual no es correcta.');
     }
-    const passwordHash = await bcrypt.hash(claveNueva, 12);
-    await consulta('UPDATE usuarios SET password_hash = $1 WHERE id = $2 AND activo IS TRUE', [passwordHash, solicitud.user.id]);
+    const hashContrasena = await cifrador.hash(claveNueva, 12);
+    await consulta('UPDATE usuarios SET password_hash = $1 WHERE id = $2 AND activo IS TRUE', [hashContrasena, solicitud.user.id]);
 
     await new Promise((resolver, rechazar) => solicitud.session.regenerate((error) => error ? rechazar(error) : resolver()));
     solicitud.session.userId = solicitud.user.id;
@@ -288,7 +288,7 @@ async function calcularAlerta(conexion, idEstudiante, hoy = null) {
  * Pase de lista: GET prepara la vista; POST vuelve a validar seccion, fecha y
  * lista de estudiantes, luego guarda asistencia y alertas como una transaccion.
  */
-router.get('/asistencia', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/asistencia', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // Las secciones y la fecha de negocio son independientes: se piden en paralelo.
     const [secciones, filaHoy] = await Promise.all([
@@ -319,7 +319,7 @@ router.get('/asistencia', requerirLogin, async (solicitud, respuesta, siguiente)
   }
 });
 
-router.post('/asistencia', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/asistencia', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   // Rechazar una seccion o fecha mal formada antes de abrir una transaccion.
   const idSeccion = validarId(String(solicitud.body.seccion_id || ''));
   const fecha = solicitud.body.fecha;
@@ -408,7 +408,7 @@ router.post('/asistencia', requerirLogin, protegerCsrf, async (solicitud, respue
  * Alertas: docentes ven las de sus secciones; coordinacion puede recalcular
  * todas y cualquier atencion de alerta requiere permiso y una nota.
  */
-router.get('/alertas', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/alertas', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // Aceptar solo filtros conocidos antes de formar la consulta.
     const nivel = nivelesPermitidos.has(solicitud.query.nivel) ? solicitud.query.nivel : '';
@@ -456,7 +456,7 @@ router.get('/alertas', requerirLogin, async (solicitud, respuesta, siguiente) =>
   }
 });
 
-router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   if (solicitud.user.rol !== 'admin') {
     return respuesta.status(403).render('error', { mensaje: 'Solo la coordinacion puede recalcular todas las alertas.' });
   }
@@ -484,7 +484,7 @@ router.post('/alertas/recalcular', requerirLogin, protegerCsrf, async (solicitud
   }
 });
 
-router.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/alertas/:id/atender', requerirLogin, protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const idAlerta = validarId(solicitud.params.id);
   const nota = typeof solicitud.body.nota === 'string' ? solicitud.body.nota.trim() : '';
   if (!idAlerta || !nota || nota.length > 200) {
@@ -572,17 +572,17 @@ function resumirReportes(filas) {
   const asistenciaGeneral = diasRegistrados > 0
     ? Math.round((asistenciasTotales / diasRegistrados) * 100)
     : 0;
-  const resumenCursos = [...asistenciasPorCurso.values()].map((item) => ({
-    curso: item.curso,
-    asistencias: item.asistencias,
-    dias: item.dias,
-    porcentaje: item.dias > 0 ? Math.round((item.asistencias / item.dias) * 100) : 0,
+  const resumenCursos = [...asistenciasPorCurso.values()].map((elemento) => ({
+    curso: elemento.curso,
+    asistencias: elemento.asistencias,
+    dias: elemento.dias,
+    porcentaje: elemento.dias > 0 ? Math.round((elemento.asistencias / elemento.dias) * 100) : 0,
   }));
 
   return { resumenRegistros, totalRegistros, asistenciaGeneral, resumenCursos };
 }
 
-router.get('/reportes/estudiantes/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/reportes/estudiantes/:id', requerirLogin, async (solicitud, respuesta, siguiente) => {
   const idEstudiante = validarId(solicitud.params.id);
   if (!idEstudiante) return respuesta.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
   try {
@@ -617,7 +617,7 @@ router.get('/reportes/estudiantes/:id', requerirLogin, async (solicitud, respues
   } catch (error) { return siguiente(error); }
 });
 
-router.get('/reportes', requerirLogin, async (solicitud, respuesta, siguiente) => {
+enrutador.get('/reportes', requerirLogin, async (solicitud, respuesta, siguiente) => {
   try {
     // La fecha de negocio, las secciones y los cursos no dependen entre si.
     const [filaHoy, secciones, cursos] = await Promise.all([
@@ -703,4 +703,4 @@ router.get('/reportes', requerirLogin, async (solicitud, respuesta, siguiente) =
   }
 });
 
-export default router;
+export default enrutador;

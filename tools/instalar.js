@@ -1,18 +1,18 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import pg from 'pg';
+import { readFile as leerArchivo } from 'node:fs/promises';
+import rutasSistema from 'node:path';
+import { fileURLToPath as convertirUrlArchivoARuta } from 'node:url';
+import postgresql from 'pg';
 import { configuracion } from '../src/config.js';
 import { separarSentenciasSql } from '../src/sql.js';
 
-const carpetaActual = path.dirname(fileURLToPath(import.meta.url));
-const carpetaProyecto = path.resolve(carpetaActual, '..');
+const carpetaActual = rutasSistema.dirname(convertirUrlArchivoARuta(import.meta.url));
+const carpetaProyecto = rutasSistema.resolve(carpetaActual, '..');
 const esReinstalacionForzada = process.argv.includes('--forzar');
 const confirmoReinstalacion = process.argv.includes('--confirmar');
 const tablasPrincipales = ['usuarios', 'cursos', 'secciones', 'estudiantes', 'asistencia', 'alertas'];
 const tablasParaResumen = [...tablasPrincipales, 'seccion_docentes'];
-const { Pool } = pg;
-const grupoConexiones = new Pool({
+const { Pool: GrupoConexiones } = postgresql;
+const grupoConexiones = new GrupoConexiones({
   connectionString: configuracion.urlBaseDatos,
   ssl: { rejectUnauthorized: true },
   max: 2,
@@ -27,8 +27,8 @@ if (esReinstalacionForzada && !confirmoReinstalacion) {
 
 // Ejecuta las sentencias de un archivo en el orden en que fueron escritas.
 async function ejecutarArchivo(nombre) {
-  const rutaArchivo = path.join(carpetaProyecto, 'sql', nombre);
-  const contenidoArchivo = await readFile(rutaArchivo, 'utf8');
+  const rutaArchivo = rutasSistema.join(carpetaProyecto, 'sql', nombre);
+  const contenidoArchivo = await leerArchivo(rutaArchivo, 'utf8');
   const sentencias = separarSentenciasSql(contenidoArchivo);
   for (const sentencia of sentencias) await grupoConexiones.query(sentencia);
   console.log(`${nombre}: ${sentencias.length} sentencia(s) ejecutadas.`);

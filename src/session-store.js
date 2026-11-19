@@ -1,4 +1,4 @@
-import session from 'express-session';
+import sesionesHttp from 'express-session';
 import { esErrorTransitorio, esperarReintento } from './errores.js';
 
 /*
@@ -36,7 +36,7 @@ async function ejecutarConReintento(operacion) {
   }
 }
 
-export class PostgresSessionStore extends session.Store {
+export class PostgresSessionStore extends sesionesHttp.Store {
   constructor(baseDatos, intervaloLimpiezaMs = 15 * 60 * 1000) {
     super();
     this.baseDatos = baseDatos;

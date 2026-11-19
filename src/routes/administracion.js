@@ -1,9 +1,9 @@
-import { Router } from 'express';
-import bcrypt from 'bcryptjs';
+import { Router as crearEnrutador } from 'express';
+import cifrador from 'bcryptjs';
 import { baseDatos, consulta } from '../db.js';
 import { protegerCsrf, requerirAdmin, validarId } from '../security.js';
 
-const router = Router();
+const enrutador = crearEnrutador();
 
 /*
  * Validaciones de formularios de coordinacion.
@@ -123,11 +123,11 @@ async function guardarSeccion({ id, nombre, cursoId, anio, docenteIds }) {
 }
 
 /* Todo el modulo requiere cuenta activa con rol admin; cada POST valida CSRF. */
-router.use(requerirAdmin);
+enrutador.use(requerirAdmin);
 
 // Inicio de Gestion: carga las listas que usan las pestañas de administracion.
 /* Lectura: cargar listas para que la coordinacion pueda revisar y editar registros. */
-router.get('/', async (solicitud, respuesta, siguiente) => {
+enrutador.get('/', async (solicitud, respuesta, siguiente) => {
   try {
     const [cursos, secciones, estudiantes, docentes, administradores] = await Promise.all([
       consulta(
@@ -169,7 +169,7 @@ router.get('/', async (solicitud, respuesta, siguiente) => {
 });
 
 /* Edicion: el tipo selecciona una consulta fija y datos auxiliares permitidos. */
-router.get('/editar/:tipo/:id', async (solicitud, respuesta, siguiente) => {
+enrutador.get('/editar/:tipo/:id', async (solicitud, respuesta, siguiente) => {
   const { tipo } = solicitud.params;
   const id = validarId(solicitud.params.id);
   // Cada tipo tiene una consulta fija; el nombre del tipo nunca se inserta en SQL.
@@ -218,7 +218,7 @@ router.get('/editar/:tipo/:id', async (solicitud, respuesta, siguiente) => {
 });
 
 /* Guardado de cambios: validar campos y relaciones antes de actualizar la tabla correspondiente. */
-router.post('/editar/:tipo/:id', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/editar/:tipo/:id', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const { tipo } = solicitud.params;
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.status(400).render('error', { mensaje: 'El identificador no es valido.' });
@@ -292,11 +292,11 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (solicitud, respuesta, sigu
       const [cuenta] = await consulta('SELECT id FROM usuarios WHERE id = $1 AND rol = $2', [id, rol]);
       if (!cuenta) return respuesta.status(404).render('error', { mensaje: 'La cuenta no existe.' });
       if (clave) {
-        const passwordHash = await bcrypt.hash(clave, 12);
+        const hashContrasena = await cifrador.hash(clave, 12);
         await consulta(
           `UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3, password_hash = $4, activo = $5
            WHERE id = $6 AND rol = $7`,
-          [nombre, cedula, usuario, passwordHash, activo, id, rol],
+          [nombre, cedula, usuario, hashContrasena, activo, id, rol],
         );
       } else {
         await consulta(
@@ -323,7 +323,7 @@ router.post('/editar/:tipo/:id', protegerCsrf, async (solicitud, respuesta, sigu
 });
 
 /* Cursos y secciones: no borrar elementos que aun tengan estudiantes o historial asociado. */
-router.post('/cursos', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/cursos', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
   const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
   const descripcion = typeof solicitud.body.descripcion === 'string' ? solicitud.body.descripcion.trim() : '';
@@ -354,7 +354,7 @@ router.post('/cursos', protegerCsrf, async (solicitud, respuesta, siguiente) => 
   }
 });
 
-router.post('/cursos/:id/eliminar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/cursos/:id/eliminar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.status(400).render('error', { mensaje: 'El curso indicado no es valido.' });
   try {
@@ -371,7 +371,7 @@ router.post('/cursos/:id/eliminar', protegerCsrf, async (solicitud, respuesta, s
   }
 });
 
-router.post('/secciones', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/secciones', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
   const cursoId = validarId(String(solicitud.body.curso_id || ''));
   const docenteIds = normalizarIdsDocentes(solicitud.body.docente_ids);
@@ -400,7 +400,7 @@ router.post('/secciones', protegerCsrf, async (solicitud, respuesta, siguiente) 
   }
 });
 
-router.post('/secciones/:id/eliminar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/secciones/:id/eliminar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.status(400).render('error', { mensaje: 'La seccion indicada no es valida.' });
   try {
@@ -418,7 +418,7 @@ router.post('/secciones/:id/eliminar', protegerCsrf, async (solicitud, respuesta
 });
 
 /* Estudiantes: desactivar conserva asistencia y alertas que ya forman parte del historial. */
-router.post('/estudiantes', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/estudiantes', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
   const numeroLista = typeof solicitud.body.numero_lista === 'string' ? solicitud.body.numero_lista.trim() : '';
   const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
@@ -463,7 +463,7 @@ router.post('/estudiantes', protegerCsrf, async (solicitud, respuesta, siguiente
   }
 });
 
-router.post('/estudiantes/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/estudiantes/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.status(400).render('error', { mensaje: 'El estudiante indicado no es valido.' });
   try {
@@ -476,7 +476,7 @@ router.post('/estudiantes/:id/desactivar', protegerCsrf, async (solicitud, respu
 });
 
 /* Personal: guardar contrasenas con hash; el rol lo determina la ruta, no el formulario. */
-router.post('/docentes', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/docentes', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = solicitud.body.id ? validarId(solicitud.body.id) : null;
   const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
   const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
@@ -492,11 +492,11 @@ router.post('/docentes', protegerCsrf, async (solicitud, respuesta, siguiente) =
   try {
     if (id) {
       if (clave) {
-        const passwordHash = await bcrypt.hash(clave, 12);
+        const hashContrasena = await cifrador.hash(clave, 12);
         await consulta(
           `UPDATE usuarios SET nombre = $1, cedula = $2, usuario = $3, password_hash = $4
            WHERE id = $5 AND rol = 'docente'`,
-          [nombre, cedula, usuario, passwordHash, id],
+          [nombre, cedula, usuario, hashContrasena, id],
         );
       } else {
         await consulta(
@@ -507,11 +507,11 @@ router.post('/docentes', protegerCsrf, async (solicitud, respuesta, siguiente) =
       }
       solicitud.session.flash = 'Docente actualizado.';
     } else {
-      const passwordHash = await bcrypt.hash(clave, 12);
+      const hashContrasena = await cifrador.hash(clave, 12);
       await consulta(
         `INSERT INTO usuarios (nombre, cedula, usuario, password_hash, rol)
          VALUES ($1, $2, $3, $4, 'docente')`,
-        [nombre, cedula, usuario, passwordHash],
+        [nombre, cedula, usuario, hashContrasena],
       );
       solicitud.session.flash = 'Docente creado.';
     }
@@ -525,7 +525,7 @@ router.post('/docentes', protegerCsrf, async (solicitud, respuesta, siguiente) =
   }
 });
 
-router.post('/docentes/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/docentes/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.status(400).render('error', { mensaje: 'El docente indicado no es valido.' });
   try {
@@ -542,7 +542,7 @@ router.post('/docentes/:id/desactivar', protegerCsrf, async (solicitud, respuest
   }
 });
 
-router.post('/administradores', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/administradores', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const nombre = typeof solicitud.body.nombre === 'string' ? solicitud.body.nombre.trim() : '';
   const cedula = typeof solicitud.body.cedula === 'string' ? solicitud.body.cedula.trim() : '';
   const usuario = typeof solicitud.body.usuario === 'string' ? solicitud.body.usuario.trim() : '';
@@ -555,11 +555,11 @@ router.post('/administradores', protegerCsrf, async (solicitud, respuesta, sigui
   }
 
   try {
-    const passwordHash = await bcrypt.hash(clave, 12);
+    const hashContrasena = await cifrador.hash(clave, 12);
     await consulta(
       `INSERT INTO usuarios (nombre, cedula, usuario, password_hash, rol)
        VALUES ($1, $2, $3, $4, 'admin')`,
-      [nombre, cedula, usuario, passwordHash],
+      [nombre, cedula, usuario, hashContrasena],
     );
     solicitud.session.flash = 'Administrador creado.';
     return respuesta.redirect('/gestion');
@@ -572,7 +572,7 @@ router.post('/administradores', protegerCsrf, async (solicitud, respuesta, sigui
   }
 });
 
-router.post('/administradores/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
+enrutador.post('/administradores/:id/desactivar', protegerCsrf, async (solicitud, respuesta, siguiente) => {
   const id = validarId(solicitud.params.id);
   if (!id) return respuesta.status(400).render('error', { mensaje: 'El administrador indicado no es valido.' });
   if (id === solicitud.user.id) {
@@ -593,4 +593,4 @@ router.post('/administradores/:id/desactivar', protegerCsrf, async (solicitud, r
   }
 });
 
-export default router;
+export default enrutador;

@@ -23,15 +23,15 @@ async function prepararFotoParaEnviar(archivo) {
   const imagen = await createImageBitmap(archivo);
   const ladoMayor = Math.max(imagen.width, imagen.height);
   const escala = Math.min(1, ladoMaximoDeFoto / ladoMayor);
-  const canvas = document.createElement('canvas');
+  const lienzo = document.createElement('canvas');
 
-  canvas.width = Math.max(1, Math.round(imagen.width * escala));
-  canvas.height = Math.max(1, Math.round(imagen.height * escala));
-  canvas.getContext('2d').drawImage(imagen, 0, 0, canvas.width, canvas.height);
+  lienzo.width = Math.max(1, Math.round(imagen.width * escala));
+  lienzo.height = Math.max(1, Math.round(imagen.height * escala));
+  lienzo.getContext('2d').drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
   imagen.close();
 
   // La imagen se reduce antes de enviarla para mantener pequeño el formulario.
-  return canvas.toDataURL('image/jpeg', 0.78);
+  return lienzo.toDataURL('image/jpeg', 0.78);
 }
 
 /* Envio de datos: la respuesta del servidor confirma si la foto se guardo. */
